@@ -63,28 +63,120 @@ function parseNumeric(text) {
 const PERCENT_MAP = {"物理攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"魔力攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"炎攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"雷攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"聖攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"属性攻撃力上昇":{"unit":"%","deep":{"0":5,"1":8,"2":10}},"脂アイテム使用時、追加で物理攻撃力上昇":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":17,"2":20}},"毒状態の敵に対する攻撃を強化":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":16,"2":20}},"腐敗状態の敵に対する攻撃を強化":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":16,"2":20}},"凍傷状態の敵に対する攻撃を強化":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":16,"2":20}},"周囲で睡眠状態の発生時、攻撃力上昇":{"unit":"%","deep":{"0":12,"1":22}},"周囲で発狂状態の発生時、攻撃力上昇":{"unit":"%","deep":{"0":12,"1":22}},"ガードカウンター強化":{"unit":"%","normal":{"0":17},"deep":{"0":17,"1":25,"2":29}},"致命の一撃強化":{"unit":"%","normal":{"0":17,"1":24}},"攻撃命中時、スタミナ回復":{"unit":"","normal":{"0":2,"1":3}},"魔術強化":{"unit":"%","normal":{"0":12},"deep":{"0":5,"1":8.5,"2":10}},"祈祷強化":{"unit":"%","normal":{"0":12},"deep":{"0":5,"1":8.5,"2":10}},"物理カット率上昇":{"unit":"%","normal":{"0":8},"deep":{"1":10,"2":13}},"属性カット率上昇":{"unit":"%","deep":{"0":7,"1":12,"2":14}},"雷カット率上昇":{"unit":"%","deep":{"0":10,"1":16,"2":18}},"毒耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"腐敗耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"出血耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"冷気耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"睡眠耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"発狂耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"抗死耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"刺突カウンター発生時、HP回復":{"unit":"%","normal":{"0":2.5},"deep":{"0":2.5,"1":3.3}},"苔薬などのアイテム使用でHP回復":{"unit":"","normal":{"0":50},"deep":{"0":50,"1":80}},"致命の一撃で、スタミナ回復速度上昇":{"unit":"%","normal":{"0":15},"deep":{"0":15,"1":25}},"敵を倒した時、アーツゲージ増加":{"unit":"%","normal":{"0":5},"deep":{"0":5,"1":6.5}},"致命の一撃で、アーツゲージ増加":{"unit":"%","normal":{"0":5},"deep":{"0":5,"1":6.5}},"ガード成功時、アーツゲージ増加":{"unit":"%","normal":{"0":1},"deep":{"0":1,"1":1.5}},"調香術強化":{"unit":"%","normal":{"0":14},"deep":{"0":14,"1":30}},"投擲ナイフの攻撃力上昇":{"unit":"%","normal":{"0":14},"deep":{"0":14,"1":30}},"投擲壺の攻撃力上昇":{"unit":"%","normal":{"0":15},"deep":{"0":15,"1":30}},"輝石、重力石アイテムの攻撃力上昇":{"unit":"%","normal":{"0":15},"deep":{"0":15,"1":30}},"アーツゲージ自然蓄積":{"unit":"%","normal":{"1":5,"2":7.5,"3":10}},"スキルクールタイム軽減":{"unit":"%","normal":{"1":5,"2":7.5,"3":10}},"強靭度":{"unit":"%","normal":{"1":5,"2":10,"3":15}},"生命力":{"unit":"HP","normal":{"1":20,"2":40,"3":60}},"精神力":{"unit":"FP","normal":{"1":5,"2":10,"3":15}},"持久力":{"unit":"スタミナ","normal":{"1":2,"2":4,"3":6}}};
 const DEMERIT_MAP = {"生命力と神秘が低下":{"value":-3,"label":"ずつ"},"筋力と知力が低下":{"value":-3,"label":"ずつ"},"技量と信仰が低下":{"value":-3,"label":"ずつ"},"知力と技量が低下":{"value":-3,"label":"ずつ"},"信仰と筋力が低下":{"value":-3,"label":"ずつ"},"取得ルーン減少":{"value":-10,"label":"%"},"HP持続減少":{"value":-2,"label":"/秒"},"すべての状態異常耐性低下":{"value":-80,"label":""},"聖杯瓶使用時、カット率低下":{"value":-45,"label":"%"},"回避直後、カット率低下":{"value":-45,"label":"%"},"回避連続時、カット率低下":{"value":-35,"label":"%"},"被ダメージ時、毒を蓄積":{"value":65,"label":"/ヒット"},"被ダメージ時、腐敗を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、出血を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、冷気を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、睡眠を蓄積":{"value":50,"label":"/ヒット"},"被ダメージ時、発狂を蓄積":{"value":50,"label":"/ヒット"},"被ダメージ時、死を蓄積":{"value":40,"label":"/ヒット"},"聖杯瓶の回復量低下":{"value":-15,"label":"%"},"アーツゲージ蓄積鈍化":{"value":-15,"label":"%"},"HP最大未満時、攻撃力低下":{"value":-10,"label":"%"},"HP最大未満時、毒が蓄積":{"value":2,"label":"/秒"},"HP最大未満時、腐敗が蓄積":{"value":2,"label":"/秒"},"瀕死時、最大HP低下":{"value":-25,"label":"%"}};
 
-// 無印(値0)スキルの検出: PERCENT_MAPに載っている基礎名と完全一致するなら「無印=最低ランク」として扱う
+
+/* ---------- 効果量データ（出典：ユーザー提供の検証済みデータ 遺物効果量.xlsx） ----------
+   name: 遺物スキル文言と完全一致する名称（+N付き）
+   stackable: 重ね掛け可否（true/false/null=不明）
+   calc: 計算方式（"乗算"|"加算"|null）
+   amount: 実際の効果量（人が読める文字列）
+   note: 補足・注意事項 */
+const EFFECT_TABLE = [{"name":"最大HP上昇（通常遺物）","stackable":false,"calc":null,"amount":"最大HP+100","note":"生命力+との重複可　深層の遺物の同名効果とは別物"},{"name":"最大HP上昇（深層遺物）","stackable":true,"calc":"加算","amount":"固定値増加計算後のHP最大値の10％増加","note":"「最大HP上昇」「最大FP上昇」「最大スタミナ上昇」について 同名の通常の遺物効果とは別物。 上昇量は、通常の遺物効果は固定値だが、深層の遺物効果は最大値に対する割合。 通常の遺物効果と深層の遺物効果を同時に付けた場合、通常の遺物効果で上昇した最大値に対する割合で計算される。 通常の遺物効果は重ね掛け不可だが、深層の遺物効果のほうは重ね掛け可能。"},{"name":"最大FP上昇（通常遺物）","stackable":false,"calc":null,"amount":"最大FP+25","note":"精神力+との重複可　深層の遺物の同名効果とは別物"},{"name":"最大FP上昇（深層遺物）","stackable":true,"calc":"加算","amount":"固定値増加計算後のFP最大値の15％増加","note":"「最大HP上昇」「最大FP上昇」「最大スタミナ上昇」について 同名の通常の遺物効果とは別物。 上昇量は、通常の遺物効果は固定値だが、深層の遺物効果は最大値に対する割合。 通常の遺物効果と深層の遺物効果を同時に付けた場合、通常の遺物効果で上昇した最大値に対する割合で計算される。 通常の遺物効果は重ね掛け不可だが、深層の遺物効果のほうは重ね掛け可能。"},{"name":"最大スタミナ上昇（通常遺物）","stackable":false,"calc":null,"amount":"最大スタミナ+10","note":"持久力+との重複可　深層の遺物の同名効果とは別物"},{"name":"最大スタミナ上昇（深層遺物）","stackable":true,"calc":"加算","amount":"固定値増加計算後のスタミナ最大値12％増加","note":"「最大HP上昇」「最大FP上昇」「最大スタミナ上昇」について 同名の通常の遺物効果とは別物。 上昇量は、通常の遺物効果は固定値だが、深層の遺物効果は最大値に対する割合。 通常の遺物効果と深層の遺物効果を同時に付けた場合、通常の遺物効果で上昇した最大値に対する割合で計算される。 通常の遺物効果は重ね掛け不可だが、深層の遺物効果のほうは重ね掛け可能。"},{"name":"生命力+1","stackable":true,"calc":"加算","amount":"最大HP+20","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"生命力+2","stackable":true,"calc":"加算","amount":"最大HP+40","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"生命力+3","stackable":true,"calc":"加算","amount":"最大HP+60","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"精神力+1","stackable":true,"calc":"加算","amount":"最大FP+5","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"精神力+2","stackable":true,"calc":"加算","amount":"最大FP+10","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"精神力+3","stackable":true,"calc":"加算","amount":"最大FP+15","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"持久力+1","stackable":true,"calc":"加算","amount":"最大スタミナ+2","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"持久力+2","stackable":true,"calc":"加算","amount":"最大スタミナ+4","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"持久力+3","stackable":true,"calc":"加算","amount":"最大スタミナ+6","note":"増加量はキャラクターやレベルを問わず固定値"},{"name":"強靭度+1","stackable":true,"calc":"加算","amount":"強靭+5%","note":null},{"name":"強靭度+2","stackable":true,"calc":"加算","amount":"強靭+10%","note":null},{"name":"強靭度+3","stackable":true,"calc":"加算","amount":"強靭+15%","note":null},{"name":"魔術師塔の仕掛けが解除される度、最大FP上昇","stackable":false,"calc":"乗算","amount":"1か所につき最大FP+18%","note":"毎回乗算,永続"},{"name":"小砦の強敵を倒す度、取得ルーン増加、発見力上昇","stackable":false,"calc":"乗算","amount":"取得ルーン+5.5%","note":null},{"name":"大教会の強敵を倒す度、最大HP上昇","stackable":false,"calc":"乗算","amount":"最大HP+5%","note":null},{"name":"大野営地の強敵を倒す度、最大スタミナ上昇","stackable":false,"calc":"乗算","amount":"最大スタミナ+7.5%","note":null},{"name":"遺跡の強敵を倒す度、神秘上昇","stackable":false,"calc":"加算","amount":"神秘+4","note":null},{"name":"属性攻撃力上昇","stackable":true,"calc":"乗算","amount":"属性攻撃力+5%","note":null},{"name":"属性攻撃力上昇+1","stackable":true,"calc":"乗算","amount":"属性攻撃力+8%","note":null},{"name":"属性攻撃力上昇+2","stackable":true,"calc":"乗算","amount":"属性攻撃力+10%","note":null},{"name":"物理攻撃力上昇","stackable":true,"calc":"乗算","amount":"物理攻撃力+4%","note":null},{"name":"物理攻撃力上昇+1","stackable":true,"calc":"乗算","amount":"物理攻撃力+5%","note":null},{"name":"物理攻撃力上昇+2","stackable":true,"calc":"乗算","amount":"物理攻撃力+6%","note":null},{"name":"物理攻撃力上昇+3","stackable":true,"calc":"乗算","amount":"物理攻撃力+10.5%","note":null},{"name":"物理攻撃力上昇+4","stackable":true,"calc":"乗算","amount":"物理攻撃力+12%","note":null},{"name":"魔力攻撃力上昇","stackable":true,"calc":"乗算","amount":"魔力攻撃力+4%","note":null},{"name":"魔力攻撃力上昇+1","stackable":true,"calc":"乗算","amount":"魔力攻撃力+5%","note":null},{"name":"魔力攻撃力上昇+2","stackable":true,"calc":"乗算","amount":"魔力攻撃力+6%","note":null},{"name":"魔力攻撃力上昇+3","stackable":true,"calc":"乗算","amount":"魔力攻撃力+10.5%","note":null},{"name":"魔力攻撃力上昇+4","stackable":true,"calc":"乗算","amount":"魔力攻撃力+12%","note":null},{"name":"炎攻撃力上昇","stackable":true,"calc":"乗算","amount":"炎攻撃力+4%","note":null},{"name":"炎攻撃力上昇+1","stackable":true,"calc":"乗算","amount":"炎攻撃力+5%","note":null},{"name":"炎攻撃力上昇+2","stackable":true,"calc":"乗算","amount":"炎攻撃力+6%","note":null},{"name":"炎攻撃力上昇+3","stackable":true,"calc":"乗算","amount":"炎攻撃力+10.5%","note":null},{"name":"炎攻撃力上昇+4","stackable":true,"calc":"乗算","amount":"炎攻撃力+12%","note":null},{"name":"雷攻撃力上昇","stackable":true,"calc":"乗算","amount":"雷攻撃力+4%","note":null},{"name":"雷攻撃力上昇+1","stackable":true,"calc":"乗算","amount":"雷攻撃力+5%","note":null},{"name":"雷攻撃力上昇+2","stackable":true,"calc":"乗算","amount":"雷攻撃力+6%","note":null},{"name":"雷攻撃力上昇+3","stackable":true,"calc":"乗算","amount":"雷攻撃力+10.5%","note":null},{"name":"雷攻撃力上昇+4","stackable":true,"calc":"乗算","amount":"雷攻撃力+12%","note":null},{"name":"聖攻撃力上昇","stackable":true,"calc":"乗算","amount":"聖攻撃力+4%","note":null},{"name":"聖攻撃力上昇+1","stackable":true,"calc":"乗算","amount":"聖攻撃力+5%","note":null},{"name":"聖攻撃力上昇+2","stackable":true,"calc":"乗算","amount":"聖攻撃力+6%","note":null},{"name":"聖攻撃力上昇+3","stackable":true,"calc":"乗算","amount":"聖攻撃力+10.5%","note":null},{"name":"聖攻撃力上昇+4","stackable":true,"calc":"乗算","amount":"聖攻撃力+12%","note":null},{"name":"近接攻撃力上昇","stackable":true,"calc":"乗算","amount":"近接攻撃力+5%","note":null},{"name":"戦技攻撃力上昇","stackable":true,"calc":"乗算","amount":"戦技攻撃力+15%","note":null},{"name":"通常攻撃の1段目強化","stackable":true,"calc":"乗算","amount":"通常攻撃1段目+15%","note":"弓の通常攻撃も対象.対象外：強攻撃、タメ攻撃、ガード攻撃、大弓、クロスボウ、バリスタ"},{"name":"致命の一撃強化","stackable":true,"calc":"乗算","amount":"致命の一撃+17%","note":null},{"name":"致命の一撃強化+1","stackable":false,"calc":"乗算","amount":"致命の一撃+24%","note":null},{"name":"咆哮とブレス強化","stackable":true,"calc":"乗算","amount":"咆哮とブレス+15%","note":"隠者の混成魔法、執行者のアーツによる咆哮も対象"},{"name":"両手持ちの、体勢を崩す力上昇","stackable":true,"calc":"乗算","amount":"体勢を崩す力+5%","note":"射撃・魔術・祈祷全般無効。両手持ち操作で二刀持ちになる武器には無効。【執行者】スキルの「妖刀」にも有効だが、弾きには無効"},{"name":"二刀持ちの、体勢を崩す力上昇","stackable":true,"calc":"乗算","amount":"体勢を崩す力+5%","note":"射撃・魔術・祈祷全般無効。両手持ち操作で二刀持ちになる武器にも有効"},{"name":"武器の持ち替え時、物理攻撃力上昇","stackable":false,"calc":"乗算","amount":"物理攻撃力+10%","note":"武器の持ち替えから10秒。【執行者】スキル「妖刀」は持ち替えに該当しない"},{"name":"属性攻撃力が付加された時、属性攻撃力上昇","stackable":true,"calc":"乗算","amount":"属性攻撃力+10%","note":"武器、エンチャント、戦技、道具、アーツが対象。エンチャント以外の魔術・祈祷は対象外"},{"name":"攻撃を受けると攻撃力上昇","stackable":false,"calc":"乗算","amount":"攻撃力+15%（10秒）","note":"属性攻撃をガードした時の貫通ダメージでも発動。自傷ダメージや0以下の被ダメは発動しない。「夜巫女の霧」は他者からの攻撃扱いなので自己誘発可能"},{"name":"状態異常ゲージがある時、徐々に攻撃力上昇","stackable":false,"calc":"乗算","amount":"1スタックごとに攻撃力+3.8%（最大10スタック,最大約45%）","note":"最初に状態異常ゲージが出た瞬間、スタックを1にしつつタイマーを発動。以降、20秒ごとにゲージを確認し、ゲージがあればスタック数が1増加、なければ0になる"},{"name":"封牢の囚を倒す度、攻撃力上昇","stackable":false,"calc":"乗算","amount":"攻撃力：封牢の囚1体につき+5%（永続）","note":"魔術・祈祷・アイテムにも効果あり（杖の魔術補正・聖印の祈祷補正には反映されない）"},{"name":"夜の侵入者を倒す度、攻撃力上昇","stackable":false,"calc":"乗算","amount":"攻撃力：災域の罪人1体につき+7%（永続）","note":"魔術・祈祷・アイテムにも効果あり（杖の魔術補正・聖印の祈祷補正には反映されない）"},{"name":"ガードカウンター強化","stackable":true,"calc":"乗算","amount":"ガードカウンターの攻撃力+17%","note":null},{"name":"ガードカウンターに、自身の現在HPの一部を加える","stackable":false,"calc":"乗算","amount":"最大HPの5%をガードカウンターのダメージに追加","note":null},{"name":"脂アイテム使用時、追加で物理攻撃力上昇","stackable":false,"calc":"乗算","amount":"物理攻撃力+10%（約30秒）","note":"キャラクター自体に物理攻撃力上昇（魔術・祈祷には適用されない）のバフが掛かる。脂のエンチャントとは別の独立したバフなので、武器を切り替えて脂の効果が切れても継続する。脂アイテムであれば盾脂でも発動する。効果時間の長い竜傷脂・盾脂では遺物効果の方が先に切れる"},{"name":"投擲壺の攻撃力上昇","stackable":true,"calc":"乗算","amount":"投擲壺の攻撃力+約15%","note":"対象は毒壺、腐敗壺、眠り壺、誘い壺、獣誘いの壺以外の投擲壺"},{"name":"投擲ナイフの攻撃力上昇","stackable":true,"calc":"乗算","amount":"投擲ナイフの攻撃力+14%","note":"対象は骨の毒投げ矢、結晶投げ矢、スローイングダガー、ククリ、扇投暗器"},{"name":"輝石、重力石アイテムの攻撃力上昇","stackable":true,"calc":"乗算","amount":"輝石・重力石アイテムの攻撃力+15%","note":"対象は屑輝石、大きな屑輝石、カッコウの輝石、扇の重力石、塊の重力石"},{"name":"調香術強化","stackable":true,"calc":"乗算","amount":"火花の香りの攻撃力+14%","note":"対象は火花の香りのみ"},{"name":"スキルクールタイム軽減+1","stackable":true,"calc":"乗算","amount":"スキルクールタイム-約5%","note":"クールタイムの基本値はキャラクターによって異なる。"},{"name":"スキルクールタイム軽減+2","stackable":true,"calc":"乗算","amount":"スキルクールタイム-約7.5%","note":"クールタイムの基本値はキャラクターによって異なる。"},{"name":"スキルクールタイム軽減+3","stackable":true,"calc":"乗算","amount":"スキルクールタイム-約10%","note":"クールタイムの基本値はキャラクターによって異なる。"},{"name":"アーツゲージ自然蓄積+1","stackable":true,"calc":"乗算","amount":"毎秒のアーツゲージ自然蓄積量+約5%","note":"※1参照.敵対峙時に自然回復する蓄積量が増加する。遺物効果なしでの基本所要時間は約335秒。"},{"name":"アーツゲージ自然蓄積+2","stackable":true,"calc":"乗算","amount":"毎秒のアーツゲージ自然蓄積量+約7.5%","note":"敵対峙時に自然回復する蓄積量が増加する。遺物効果なしでの基本所要時間は約335秒。"},{"name":"アーツゲージ自然蓄積+3","stackable":true,"calc":"乗算","amount":"毎秒のアーツゲージ自然蓄積量+約10%","note":"敵対峙時に自然回復する蓄積量が増加する。遺物効果なしでの基本所要時間は約335秒。"},{"name":"敵を倒した時、アーツゲージ増加","stackable":false,"calc":"乗算","amount":"敵撃破時のアーツゲージ+約5%","note":"1体当たり自然回復で約16.75秒短縮相当。+1とは重ね掛け可能。クールタイムはなく、複数の敵を倒した場合もそれぞれの分だけ発動する。自分以外が倒した敵にも有効"},{"name":"敵を倒した時、アーツゲージ増加+1","stackable":false,"calc":"乗算","amount":"敵撃破時のアーツゲージ+約6.5%","note":"無印とは重ね掛け可能。クールタイムはなく、複数の敵を倒した場合もそれぞれの分だけ発動する。自分以外が倒した敵にも有効"},{"name":"致命の一撃で、アーツゲージ増加","stackable":false,"calc":"乗算","amount":"致命の一撃時のアーツゲージ+約5%","note":"1回あたり自然回復で約16.75秒短縮相当。+1とは重ね掛け可能。致命の一撃モーション開始時に固定5%加算され、その後、致命の一撃による通常のアーツゲージ蓄積が入る"},{"name":"致命の一撃で、アーツゲージ増加+1","stackable":false,"calc":"乗算","amount":"致命の一撃時のアーツゲージ+約6.5%","note":"無印とは重ね掛け可能。致命の一撃モーション開始時に固定5%加算され、その後、致命の一撃による通常のアーツゲージ蓄積が入る"},{"name":"ガード成功時、アーツゲージ増加","stackable":false,"calc":"乗算","amount":"ガード成功時のアーツゲージ+約1%","note":"1回あたり自然回復で約3.35秒短縮相当。+1とは重ね掛け可能。クールタイムはなく、連続攻撃をガードした場合もそれぞれの分だけ発動する。【執行者】スキルの弾きでも発動するが、ガードを崩された場合は発動しない"},{"name":"ガード成功時、アーツゲージ増加+1","stackable":false,"calc":"乗算","amount":"ガード成功時のアーツゲージ+約1.5%","note":"無印とは重ね掛け可能。クールタイムはなく、連続攻撃をガードした場合もそれぞれの分だけ発動する。【執行者】スキルの弾きでも発動するが、ガードを崩された場合は発動しない"},{"name":"魔術／祈祷、効果時間延長","stackable":false,"calc":"加算","amount":"効果時間+50%","note":"付帯効果や潜在する力の同効果と重複可(加算式)"},{"name":"物理カット率上昇","stackable":true,"calc":"乗算","amount":"物理属性カット率+8%","note":null},{"name":"物理カット率上昇+1","stackable":true,"calc":"乗算","amount":"物理属性カット率+10%","note":null},{"name":"物理カット率上昇+2","stackable":true,"calc":"乗算","amount":"物理属性カット率+13%","note":null},{"name":"属性カット率上昇","stackable":true,"calc":"乗算","amount":"属性カット率+7%","note":null},{"name":"属性カット率上昇+1","stackable":true,"calc":"乗算","amount":"属性カット率+12%","note":null},{"name":"属性カット率上昇+2","stackable":true,"calc":"乗算","amount":"属性カット率+14%","note":null},{"name":"魔力カット率上昇","stackable":true,"calc":"乗算","amount":"魔力属性カット率+10%","note":null},{"name":"魔力カット率上昇+1","stackable":true,"calc":"乗算","amount":"魔力属性カット率+16%","note":null},{"name":"魔力カット率上昇+2","stackable":true,"calc":"乗算","amount":"魔力属性カット率+18%","note":null},{"name":"炎カット率上昇","stackable":true,"calc":"乗算","amount":"炎属性カット率+10%","note":null},{"name":"炎カット率上昇+1","stackable":true,"calc":"乗算","amount":"炎属性カット率+16%","note":null},{"name":"炎カット率上昇+2","stackable":true,"calc":"乗算","amount":"炎属性カット率+18%","note":null},{"name":"雷カット率上昇","stackable":true,"calc":"乗算","amount":"雷属性カット率+10%","note":null},{"name":"雷カット率上昇+1","stackable":true,"calc":"乗算","amount":"雷属性カット率+16%","note":null},{"name":"雷カット率上昇+2","stackable":true,"calc":"乗算","amount":"雷属性カット率+18%","note":null},{"name":"聖カット率上昇","stackable":true,"calc":"乗算","amount":"聖属性カット率+10%","note":null},{"name":"聖カット率上昇+1","stackable":true,"calc":"乗算","amount":"聖属性カット率+16%","note":null},{"name":"聖カット率上昇+2","stackable":true,"calc":"乗算","amount":"聖属性カット率+18%","note":null},{"name":"HP低下時、カット率上昇","stackable":true,"calc":"乗算","amount":"全属性カット率+15%","note":"特殊効果には「物理カット率上昇」と出るが、実際には全属性のカット率が上昇.HP40%未満の状態でのみ発動.HP40%未満である限り永続"},{"name":"ダメージで吹き飛ばされた時、強靭度とカット率上昇","stackable":false,"calc":null,"amount":"全属性カット率+20%,強靭度+20%(20秒)","note":"ダメージの有無に関わらず盾受け時の吹き飛びでは発動しない.吹き飛ばし効果のある攻撃を受けても、戦技「我慢」などを使用して吹き飛ばなかった場合は効果が発動しない.無頼漢のスキル使用時のみ、吹き飛ばし効果のある攻撃を受けて吹き飛ばなかった場合にも発動"},{"name":"毒耐性上昇","stackable":true,"calc":"加算","amount":"１つにつき耐性+75","note":"加算で計算"},{"name":"毒耐性上昇+1","stackable":true,"calc":"加算","amount":"１つにつき耐性+110","note":"加算で計算"},{"name":"腐敗耐性上昇","stackable":true,"calc":"加算","amount":"１つにつき耐性+75","note":"加算で計算"},{"name":"腐敗耐性上昇+1","stackable":true,"calc":"加算","amount":"１つにつき耐性+110","note":"加算で計算"},{"name":"出血耐性上昇","stackable":true,"calc":"加算","amount":"１つにつき耐性+75","note":"加算で計算"},{"name":"出血耐性上昇+1","stackable":true,"calc":"加算","amount":"１つにつき耐性+110","note":"加算で計算"},{"name":"冷気耐性上昇","stackable":true,"calc":"加算","amount":"１つにつき耐性+75","note":"加算で計算"},{"name":"冷気耐性上昇+1","stackable":true,"calc":"加算","amount":"１つにつき耐性+110","note":"加算で計算"},{"name":"睡眠耐性上昇","stackable":true,"calc":"加算","amount":"１つにつき耐性+75","note":"加算で計算"},{"name":"睡眠耐性上昇+1","stackable":true,"calc":"加算","amount":"１つにつき耐性+110","note":"加算で計算"},{"name":"発狂耐性上昇","stackable":true,"calc":"加算","amount":"１つにつき耐性+75","note":"加算で計算"},{"name":"発狂耐性上昇+1","stackable":true,"calc":"加算","amount":"１つにつき耐性+110","note":"加算で計算"},{"name":"抗死耐性上昇","stackable":true,"calc":"加算","amount":"１つにつき耐性+75","note":"加算で計算"},{"name":"抗死耐性上昇+1","stackable":true,"calc":"加算","amount":"１つにつき耐性+110","note":"加算で計算"},{"name":"HP持続回復","stackable":true,"calc":"加算","amount":"毎秒2のHP回復","note":null},{"name":"HP低下時、周囲の味方を含めHPをゆっくりと回復","stackable":false,"calc":null,"amount":"毎秒([最大HPの0.5%]+1)HP回復(50秒)","note":"残りHPが40%以下になると、自身と周囲の味方にHP持続回復のバフが発動する。発動後はHPが40%以上になっても持続する"},{"name":"ガード成功時、HPを回復","stackable":false,"calc":null,"amount":"ガード成功時にHPを15回復","note":"クールタイムあり。【執行者】スキルの弾きでも発動する。潜在する力の同効果とは重複可能"},{"name":"刺突カウンター発生時、HP回復","stackable":false,"calc":"加算","amount":"刺突カウンター発生時に最大HPの2.5%分HP回復","note":"弓や投げ矢などの飛び道具でも発動する.※+値が違えば重複可"},{"name":"刺突カウンター発生時、HP回復+1","stackable":false,"calc":"加算","amount":"刺突カウンター発生時に最大HPの3.3%分HP回復","note":"弓や投げ矢などの飛び道具でも発動する.※+値が違えば重複可"},{"name":"ダメージを受けた直後、攻撃によりHPの一部を回復","stackable":false,"calc":"加算","amount":"被ダメージ直後の攻撃でHP回復+回復量の0%追加で回復","note":"※+値が違えば重複可.無印はリゲイン有効化のみのため無印との重複は無意味"},{"name":"ダメージを受けた直後、攻撃によりHPの一部を回復+1","stackable":false,"calc":"加算","amount":"被ダメージ直後の攻撃でHP回復+回復量の25%追加で回復","note":"※+値が違えば重複可.無印はリゲイン有効化のみのため無印との重複は無意味"},{"name":"ダメージを受けた直後、攻撃によりHPの一部を回復+2","stackable":false,"calc":"加算","amount":"被ダメージ直後の攻撃でHP回復+回復量の35%追加で回復","note":"※+値が違えば重複可.無印はリゲイン有効化のみのため無印との重複は無意味"},{"name":"苔薬などのアイテム使用でHP回復","stackable":false,"calc":"加算","amount":"対象アイテム使用時にHPを50回復","note":"※+値が違えば重複可.対象は苔薬7種、鳥脚2種、ゆで2種、亀首漬け、勇者の肉塊"},{"name":"苔薬などのアイテム使用でHP回復","stackable":false,"calc":"加算","amount":"対象アイテム使用時にHPを80回復","note":"※+値が違えば重複可.対象は苔薬7種、鳥脚2種、ゆで3種、亀首漬け、勇者の肉塊"},{"name":"聖杯瓶の回復量上昇","stackable":true,"calc":"乗算","amount":"聖杯瓶の回復量+10%","note":null},{"name":"周囲で腐敗状態の発生時、HP持続回復","stackable":false,"calc":null,"amount":"毎秒([最大HPの0.15%]+15)HP回復(15秒)","note":"周囲で腐敗状態が発生した時に発動する（計11回）"},{"name":"消費FP軽減","stackable":true,"calc":"乗算","amount":"消費FPより-7%","note":"重ね掛けた分だけ消費量に0.93を乗算. 小数点以下が0.23以上なら繰り上げ(0.23未満なら切り捨て)"},{"name":"FP持続回復","stackable":false,"calc":null,"amount":"5秒ごとにFPを1回復","note":null},{"name":"攻撃連続時、FP回復","stackable":null,"calc":null,"amount":"攻撃連続時に最大FPの5%分FP回復","note":"射撃・魔術・祈祷・飛び道具などは対象外。"},{"name":"発狂状態になると、FP持続回復","stackable":true,"calc":"加算","amount":"25秒間、毎秒FPを2ずつ回復（合計50FP回復）","note":"発狂時のFPダメージは免除されない。魔の夜と魔の暗き夜で重ね掛け可能（合計100回復）"},{"name":"攻撃命中時、スタミナ回復","stackable":false,"calc":"加算","amount":"攻撃命中ごとにスタミナを2回復","note":"魔術・祈祷・混成魔法以外のすべての攻撃で発動する。※+値が違えば重複可."},{"name":"攻撃命中時、スタミナ回復+1","stackable":false,"calc":"加算","amount":"攻撃命中ごとにスタミナを3回復","note":"魔術・祈祷・混成魔法以外のすべての攻撃で発動する。※+値が違えば重複可."},{"name":"致命の一撃で、スタミナ回復速度上昇","stackable":false,"calc":"乗算","amount":"致命の一撃時、15秒間スタミナ回復速度+約15%","note":"致命の一撃モーション開始時から付与される.※+値が違えば重複可."},{"name":"致命の一撃で、スタミナ回復速度上昇+1","stackable":false,"calc":"乗算","amount":"致命の一撃時、15秒間スタミナ回復速度+約25%","note":"致命の一撃モーション開始時から付与される.※+値が違えば重複可."},{"name":"致命の一撃で、ルーンを取得","stackable":false,"calc":null,"amount":"致命の一撃1回ごとに600ルーン取得","note":null},{"name":"武器の持ち替え時、いずれかの属性攻撃力を付加","stackable":false,"calc":null,"amount":"魔力・炎・雷・聖のいずれかの属性攻撃力+10（10秒）","note":"武器を切り替えた時に発動する。【執行者】スキル「妖刀」はエンチャントできない"},{"name":"被ダメージ時、腐敗の状態異常を付加","stackable":false,"calc":null,"amount":"右手武器に腐敗蓄積量+25（12.5秒）","note":"被ダメージ時に発動する"},{"name":"ガード中、敵に狙われやすくなる","stackable":false,"calc":null,"amount":"約0.5秒以上のガード継続で敵に狙われやすくなる","note":"盾・武器でのガード、ハイガード、ガード攻撃が対象。ガードが途切れると約4秒後に解除される。祈祷「シャブリリの叫び」と重ね掛け可能"},{"name":"ジェスチャー「あぐら」により、発狂が蓄積","stackable":true,"calc":null,"amount":"姿勢を戻すまで発狂を高速蓄積","note":"「あぐら」は小壺商人から購入できる。執行者LV15では、使用から蓄積開始まで約5秒、発症まで約1秒の合計約6秒"},{"name":"カット率低下時、稀に敵から受ける攻撃を無効化","stackable":false,"calc":null,"amount":"カット率低下中、確率で被ダメージを無効化（確率不明）","note":"常時発動型のカット率低下や、水場の雷カット率低下などの地形効果も対象。"},{"name":"毒状態の敵に対する攻撃を強化","stackable":false,"calc":"乗算","amount":"毒状態の敵への与ダメージ+約10%（20秒）","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"毒状態の敵に対する攻撃を強化+1","stackable":false,"calc":"乗算","amount":"毒状態の敵への与ダメージ+約16%（20秒）","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"毒状態の敵に対する攻撃を強化+2","stackable":false,"calc":"乗算","amount":"毒状態の敵への与ダメージ+約20%（20秒）","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"腐敗状態の敵に対する攻撃を強化","stackable":false,"calc":"乗算","amount":"腐敗状態の敵への与ダメージ+約10%","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"腐敗状態の敵に対する攻撃を強化+1","stackable":false,"calc":"乗算","amount":"腐敗状態の敵への与ダメージ+約16%","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"腐敗状態の敵に対する攻撃を強化+2","stackable":false,"calc":"乗算","amount":"腐敗状態の敵への与ダメージ+約20%","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"凍傷状態の敵に対する攻撃を強化","stackable":false,"calc":"乗算","amount":"凍傷状態の敵への与ダメージ+約10%","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"凍傷状態の敵に対する攻撃を強化+1","stackable":false,"calc":"乗算","amount":"凍傷状態の敵への与ダメージ+約16%","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"凍傷状態の敵に対する攻撃を強化+2","stackable":false,"calc":"乗算","amount":"凍傷状態の敵への与ダメージ+約20%","note":"※+値が違えば重複可.魔術・祈祷や属性攻撃も対象"},{"name":"周囲で毒／腐敗状態の発生時、攻撃力上昇","stackable":false,"calc":"乗算","amount":"攻撃力+約12%（20秒）","note":"周囲で毒または腐敗状態が発生した時に発動する"},{"name":"周囲で発狂状態の発生時、攻撃力上昇","stackable":false,"calc":"乗算","amount":"攻撃力+約12%（20秒）","note":null},{"name":"周囲で発狂状態の発生時、攻撃力上昇+1","stackable":false,"calc":"乗算","amount":"攻撃力+約22%（20秒）","note":null},{"name":"周囲で凍傷状態の発生時、自身の姿を隠す","stackable":null,"calc":null,"amount":"敵から見えにくくなり、足音を完全に消す（約6秒）","note":"周囲で凍傷状態が発生した時に発動する"},{"name":"自身と味方の取得ルーン増加","stackable":true,"calc":"加算","amount":"自身と味方の取得ルーン+3.5%","note":null},{"name":"自身を除く、周囲の味方のスタミナ回復速度上昇","stackable":false,"calc":null,"amount":"周囲の味方のスタミナ回復速度+4/秒","note":"自身は対象外。効果範囲はローリング約3回分"},{"name":"聖杯瓶の回復を、周囲の味方に分配","stackable":false,"calc":null,"amount":"自身の聖杯瓶回復量-10%、味方は最大HPの30%回復","note":"復讐者の霊体も対象。効果範囲はローリング約4回分。聖杯瓶の回復量上昇は自身と分配先に各自の効果を適用。ゆっくり回復も分配され、その場合は自身が最大HPの80%、味方が最大HPの40%を回復する。ゆっくり回復時は本効果の-10%を含む聖杯瓶回復量の増減を受けない"},{"name":"敵を倒した時、自身を除く周囲の味方のHPを回復","stackable":false,"calc":null,"amount":"敵撃破ごとに周囲の味方のHPを20回復","note":"自身は対象外。自分以外が敵を倒した場合も発動"},{"name":"アイテムの効果が周囲の味方にも発動","stackable":false,"calc":null,"amount":"食物系アイテムの効果を周囲の味方にも付与","note":"調香瓶・霊薬のバフ、脂系エンチャントは対象外。効果範囲はローリング約4回分。使用モーションが長くなるが、苔薬と星光の欠片は変化しない。星光の欠片による味方のFP回復量は最大FPの30%（通常60%）"},{"name":"○○の攻撃力上昇","stackable":true,"calc":"乗算","amount":"対象武器の与ダメージ+9%（弓は6%）","note":"物理・属性攻撃力ではなく与ダメージが上昇する。対象武器種：短剣・直剣・大剣・特大剣・刺剣・重刺剣・曲剣・大曲剣・刀・両刃剣・斧・大斧・槌・フレイル・大槌・特大武器・槍・大槍・斧槍・鎌・鞭・拳・爪・弓"},{"name":"○○の攻撃でHP回復","stackable":false,"calc":null,"amount":"対象武器の攻撃時にHPを15回復","note":"クールタイムは約1秒。対象武器種：短剣・直剣・大剣・特大剣・刺剣・重刺剣・曲剣・大曲剣・刀・両刃剣・斧・大斧・槌・フレイル・大槌・特大武器・槍・大槍・斧槍・鎌・鞭・拳・爪・弓"},{"name":"○○の攻撃でFP回復","stackable":false,"calc":null,"amount":"対象武器の攻撃時にFPを2回復","note":"クールタイムは約1秒。対象武器種：短剣・直剣・大剣・特大剣・刺剣・重刺剣・曲剣・大曲剣・刀・両刃剣・斧・大斧・槌・フレイル・大槌・特大武器・槍・大槍・斧槍・鎌・鞭・拳・爪・弓"},{"name":"○○の武器種を3つ以上装備していると攻撃力上昇","stackable":false,"calc":null,"amount":"与ダメージ+20%（弓は10%）","note":"条件の武器種以外の攻撃にも適用される。異なる武器種の効果は重ね掛け可能。対象武器種：短剣・直剣・大剣・特大剣・刺剣・重刺剣・曲剣・大曲剣・刀・両刃剣・斧・大斧・槌・フレイル・大槌・特大武器・槍・大槍・斧槍・鎌・鞭・拳・爪・弓"},{"name":"○○の武器種を3つ以上装備していると最大HP上昇","stackable":false,"calc":null,"amount":"最大HP+200","note":"対象武器種：小盾・中盾・大盾。異なる武器種の効果は重ね掛け可能"},{"name":"○○の武器種を3つ以上装備していると最大FP上昇","stackable":false,"calc":null,"amount":"最大FP+50","note":"対象武器種：杖・聖印。異なる武器種の効果は重ね掛け可能"}];
+
+/* ---------- 攻撃力系スキルの「対象プール」データ（出典：ユーザー提供 calc_data.json の DAMAGE_MAP）
+   同じtargetを持つスキル同士が同じ強化枠を共有する（ビルド計算のグループ化に使用） ---------- */
+const DAMAGE_TABLE = {"近接攻撃力上昇":{"target":"近接攻撃力上昇","pct":5.0,"stacks":true},"戦技攻撃力上昇":{"target":"戦技攻撃力上昇","pct":15.0,"stacks":true},"通常攻撃の1段目強化":{"target":"通常攻撃の1段目強化","pct":15.0,"stacks":true},"致命の一撃強化":{"target":"致命の一撃強化","pct":17.0,"stacks":true},"致命の一撃強化+1":{"target":"致命の一撃強化+1","pct":24.0,"stacks":true},"咆哮とブレス強化":{"target":"咆哮とブレス強化","pct":15.0,"stacks":true},"武器の持ち替え時、物理攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"属性攻撃力が付加された時、属性攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":true},"攻撃を受けると攻撃力上昇":{"target":"すべての攻撃を強化","pct":15.0,"stacks":false},"輝剣の魔術を強化":{"target":"輝剣の魔術を強化","pct":12.0,"stacks":true},"石掘りの魔術を強化":{"target":"石掘りの魔術を強化","pct":12.0,"stacks":true},"カーリアの剣の魔術を強化":{"target":"カーリアの剣の魔術を強化","pct":12.0,"stacks":true},"不可視の魔術を強化":{"target":"不可視の魔術を強化","pct":12.0,"stacks":true},"結晶人の魔術を強化":{"target":"結晶人の魔術を強化","pct":12.0,"stacks":true},"重力の魔術を強化":{"target":"重力の魔術を強化","pct":12.0,"stacks":true},"茨の魔術を強化":{"target":"茨の魔術を強化","pct":12.0,"stacks":true},"黄金律原理主義の祈祷を強化":{"target":"黄金律原理主義の祈祷を強化","pct":12.0,"stacks":true},"王都古竜信仰の祈祷を強化":{"target":"王都古竜信仰の祈祷を強化","pct":12.0,"stacks":true},"巨人の火の祈祷を強化":{"target":"巨人の火の祈祷を強化","pct":12.0,"stacks":true},"神狩りの祈祷を強化":{"target":"神狩りの祈祷を強化","pct":12.0,"stacks":true},"獣の祈祷を強化":{"target":"獣の祈祷を強化","pct":12.0,"stacks":true},"狂い火の祈祷を強化":{"target":"狂い火の祈祷を強化","pct":12.0,"stacks":true},"竜餐の祈祷を強化":{"target":"竜餐の祈祷を強化","pct":12.0,"stacks":true},"周囲で毒／腐敗状態の発生時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":12.0,"stacks":false},"【鉄の目】アーツ発動後、刺突カウンター強化":{"target":"刺突カウンターを強化","pct":20.0,"stacks":false},"【無頼漢】スキル中に攻撃を受けると攻撃力と最大スタミナ上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"【復讐者】ファミリーと共闘中の間、自身を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"【陰者】アーツ発動時、自身が出血状態になり、攻撃力上昇":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"【陰者】属性痕を集めた時、「魔術の地」が発動":{"target":"魔力攻撃力を強化","pct":22.5,"stacks":false},"【執行者】スキル中の攻撃力上昇、攻撃時にカット率低下":{"target":"妖刀の攻撃を強化","pct":35.0,"stacks":false},"【葬儀屋】アーツ発動時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":18.0,"stacks":false},"【葬儀屋】連撃の最終攻撃命中時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"短剣の攻撃力上昇":{"target":"短剣の攻撃力上昇","pct":9.0,"stacks":true},"直剣の攻撃力上昇":{"target":"直剣の攻撃力上昇","pct":9.0,"stacks":true},"大剣の攻撃力上昇":{"target":"大剣の攻撃力上昇","pct":9.0,"stacks":true},"特大剣の攻撃力上昇":{"target":"特大剣の攻撃力上昇","pct":9.0,"stacks":true},"刺剣の攻撃力上昇":{"target":"刺剣の攻撃力上昇","pct":9.0,"stacks":true},"重刺剣の攻撃力上昇":{"target":"重刺剣の攻撃力上昇","pct":9.0,"stacks":true},"曲剣の攻撃力上昇":{"target":"曲剣の攻撃力上昇","pct":9.0,"stacks":true},"大曲剣の攻撃力上昇":{"target":"大曲剣の攻撃力上昇","pct":9.0,"stacks":true},"刀の攻撃力上昇":{"target":"刀の攻撃力上昇","pct":9.0,"stacks":true},"両刃剣の攻撃力上昇":{"target":"両刃剣の攻撃力上昇","pct":9.0,"stacks":true},"斧の攻撃力上昇":{"target":"斧の攻撃力上昇","pct":9.0,"stacks":true},"大斧の攻撃力上昇":{"target":"大斧の攻撃力上昇","pct":9.0,"stacks":true},"槌の攻撃力上昇":{"target":"槌の攻撃力上昇","pct":9.0,"stacks":true},"フレイルの攻撃力上昇":{"target":"フレイルの攻撃力上昇","pct":9.0,"stacks":true},"大槌の攻撃力上昇":{"target":"大槌の攻撃力上昇","pct":9.0,"stacks":true},"特大武器の攻撃力上昇":{"target":"特大武器の攻撃力上昇","pct":9.0,"stacks":true},"槍の攻撃力上昇":{"target":"槍の攻撃力上昇","pct":9.0,"stacks":true},"大槍の攻撃力上昇":{"target":"大槍の攻撃力上昇","pct":9.0,"stacks":true},"斧槍の攻撃力上昇":{"target":"斧槍の攻撃力上昇","pct":9.0,"stacks":true},"鎌の攻撃力上昇":{"target":"鎌の攻撃力上昇","pct":9.0,"stacks":true},"鞭の攻撃力上昇":{"target":"鞭の攻撃力上昇","pct":9.0,"stacks":true},"拳の攻撃力上昇":{"target":"拳の攻撃力上昇","pct":9.0,"stacks":true},"爪の攻撃力上昇":{"target":"爪の攻撃力上昇","pct":9.0,"stacks":true},"弓の攻撃力上昇":{"target":"弓の攻撃力上昇","pct":6.0,"stacks":true},"短剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"直剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"特大剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"刺剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"重刺剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"曲剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大曲剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"刀の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"両刃剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"斧の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大斧の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"槌の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"フレイルの武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大槌の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"特大武器の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"槍の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大槍の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"斧槍の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"鎌の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"鞭の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"拳の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"爪の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"弓の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"属性攻撃力上昇":{"target":"属性攻撃力上昇","pct":5.0,"stacks":true},"属性攻撃力上昇+1":{"target":"属性攻撃力上昇","pct":8.0,"stacks":true},"属性攻撃力上昇+2":{"target":"属性攻撃力上昇","pct":10.0,"stacks":true},"物理攻撃力上昇":{"target":"物理攻撃力上昇","pct":4.0,"stacks":true},"物理攻撃力上昇+1":{"target":"物理攻撃力上昇","pct":5.0,"stacks":true},"物理攻撃力上昇+2":{"target":"物理攻撃力上昇","pct":6.0,"stacks":true},"物理攻撃力上昇+3":{"target":"物理攻撃力上昇","pct":10.5,"stacks":true},"物理攻撃力上昇+4":{"target":"物理攻撃力上昇","pct":12.0,"stacks":true},"魔力攻撃力上昇":{"target":"魔力攻撃力上昇","pct":4.0,"stacks":true},"魔力攻撃力上昇+1":{"target":"魔力攻撃力上昇","pct":5.0,"stacks":true},"魔力攻撃力上昇+2":{"target":"魔力攻撃力上昇","pct":6.0,"stacks":true},"魔力攻撃力上昇+3":{"target":"魔力攻撃力上昇","pct":10.5,"stacks":true},"魔力攻撃力上昇+4":{"target":"魔力攻撃力上昇","pct":12.0,"stacks":true},"炎攻撃力上昇":{"target":"炎攻撃力上昇","pct":4.0,"stacks":true},"炎攻撃力上昇+1":{"target":"炎攻撃力上昇","pct":5.0,"stacks":true},"炎攻撃力上昇+2":{"target":"炎攻撃力上昇","pct":6.0,"stacks":true},"炎攻撃力上昇+3":{"target":"炎攻撃力上昇","pct":10.5,"stacks":true},"炎攻撃力上昇+4":{"target":"炎攻撃力上昇","pct":12.0,"stacks":true},"雷攻撃力上昇":{"target":"雷攻撃力上昇","pct":4.0,"stacks":true},"雷攻撃力上昇+1":{"target":"雷攻撃力上昇","pct":5.0,"stacks":true},"雷攻撃力上昇+2":{"target":"雷攻撃力上昇","pct":6.0,"stacks":true},"雷攻撃力上昇+3":{"target":"雷攻撃力上昇","pct":10.5,"stacks":true},"雷攻撃力上昇+4":{"target":"雷攻撃力上昇","pct":12.0,"stacks":true},"聖攻撃力上昇":{"target":"聖攻撃力上昇","pct":4.0,"stacks":true},"聖攻撃力上昇+1":{"target":"聖攻撃力上昇","pct":5.0,"stacks":true},"聖攻撃力上昇+2":{"target":"聖攻撃力上昇","pct":6.0,"stacks":true},"聖攻撃力上昇+3":{"target":"聖攻撃力上昇","pct":10.5,"stacks":true},"聖攻撃力上昇+4":{"target":"聖攻撃力上昇","pct":12.0,"stacks":true},"魔術強化":{"target":"魔術強化","pct":5.0,"stacks":true},"魔術強化+1":{"target":"魔術強化","pct":8.5,"stacks":true},"魔術強化+2":{"target":"魔術強化","pct":10.0,"stacks":true},"祈祷強化":{"target":"祈祷強化","pct":5.0,"stacks":true},"祈祷強化+1":{"target":"祈祷強化","pct":8.5,"stacks":true},"祈祷強化+2":{"target":"祈祷強化","pct":10.0,"stacks":true},"ガードカウンター強化":{"target":"ガードカウンター強化","pct":17.0,"stacks":true},"ガードカウンター強化+1":{"target":"ガードカウンター強化","pct":25.0,"stacks":true},"ガードカウンター強化+2":{"target":"ガードカウンター強化","pct":29.0,"stacks":true},"脂アイテム使用時、追加で物理攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"脂アイテム使用時、追加で物理攻撃力上昇+1":{"target":"すべての攻撃を強化","pct":17.0,"stacks":false},"脂アイテム使用時、追加で物理攻撃力上昇+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"投擲壺の攻撃力上昇":{"target":"投擲壺の攻撃力上昇","pct":15.0,"stacks":true},"投擲壺の攻撃力上昇+1":{"target":"投擲壺の攻撃力上昇","pct":30.0,"stacks":true},"投擲ナイフの攻撃力上昇":{"target":"投擲ナイフの攻撃力上昇","pct":15.0,"stacks":true},"投擲ナイフの攻撃力上昇+1":{"target":"投擲ナイフの攻撃力上昇","pct":30.0,"stacks":true},"輝石、重力石アイテムの攻撃力上昇":{"target":"輝石、重力石アイテムの攻撃力上昇","pct":15.0,"stacks":true},"輝石、重力石アイテムの攻撃力上昇+1":{"target":"輝石、重力石アイテムの攻撃力上昇","pct":30.0,"stacks":true},"調香術強化":{"target":"調香術強化","pct":14.0,"stacks":true},"調香術強化+1":{"target":"調香術強化","pct":30.0,"stacks":true},"毒状態の敵に対する攻撃を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"毒状態の敵に対する攻撃を強化+1":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"毒状態の敵に対する攻撃を強化+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"腐敗状態の敵に対する攻撃を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"腐敗状態の敵に対する攻撃を強化+1":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"腐敗状態の敵に対する攻撃を強化+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"凍傷状態の敵に対する攻撃を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"凍傷状態の敵に対する攻撃を強化+1":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"凍傷状態の敵に対する攻撃を強化+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"周囲で睡眠状態の発生時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":12.0,"stacks":false},"周囲で睡眠状態の発生時、攻撃力上昇+1":{"target":"すべての攻撃を強化","pct":22.0,"stacks":false},"周囲で発狂状態の発生時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":12.0,"stacks":false},"周囲で発狂状態の発生時、攻撃力上昇+1":{"target":"すべての攻撃を強化","pct":22.0,"stacks":false}};
+
+const EFFECT_BY_NAME = new Map(EFFECT_TABLE.map((e) => [e.name, e]));
+
+// "○○の攻撃力上昇" のような武器種ワイルドカード行を、実際の遺物スキル名にフォールバック適用するための規則
+const WILDCARD_RULES = [
+  { test: /^(.+)の攻撃力上昇$/, template: "○○の攻撃力上昇" },
+  { test: /^(.+)の攻撃でHP回復$/, template: "○○の攻撃でHP回復" },
+  { test: /^(.+)の攻撃でFP回復$/, template: "○○の攻撃でFP回復" },
+  { test: /^(.+)の武器種を3つ以上装備していると攻撃力上昇$/, template: "○○の武器種を3つ以上装備していると攻撃力上昇" },
+  { test: /^(.+)の武器種を3つ以上装備していると最大HP上昇$/, template: "○○の武器種を3つ以上装備していると最大HP上昇" },
+  { test: /^(.+)の武器種を3つ以上装備していると最大FP上昇$/, template: "○○の武器種を3つ以上装備していると最大FP上昇" },
+];
+
+function lookupEffectEntry(fullText) {
+  if (EFFECT_BY_NAME.has(fullText)) return EFFECT_BY_NAME.get(fullText);
+  for (const rule of WILDCARD_RULES) {
+    if (rule.test.test(fullText) && !EFFECT_BY_NAME.has(fullText)) {
+      const tmpl = EFFECT_BY_NAME.get(rule.template);
+      if (tmpl) return tmpl;
+    }
+  }
+  return null;
+}
+
+// amount文字列（例："物理攻撃力+4%"、"最大HP+20"）から先頭の数値とその単位を抜き出す
+function parseAmountNumber(amountStr) {
+  if (!amountStr) return null;
+  const pctMatch = amountStr.match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
+  if (pctMatch) return { value: parseFloat(pctMatch[1]), unit: "%" };
+  const numMatch = amountStr.match(/\+(\d+(?:\.\d+)?)/);
+  if (numMatch) return { value: parseFloat(numMatch[1]), unit: "" };
+  return null;
+}
+
+// 無印(値0)スキルの検出: 効果量データ or 旧テーブルに載っている基礎名と完全一致するなら「無印=最低ランク」として扱う
 function parseBareNumeric(text) {
-  if (!PERCENT_MAP[text]) return null;
+  if (!EFFECT_BY_NAME.has(text) && !PERCENT_MAP[text]) return null;
   return { base: text, value: 0, category: categoryOf(text) };
 }
 
 function getPercent(base, value, depth) {
-  const entry = PERCENT_MAP[base];
-  if (!entry) return null;
+  const fullText = value === 0 ? base : `${base}+${value}`;
+
+  // 優先1：検証済み効果量データ（遺物効果量.xlsx由来）
+  const entry = lookupEffectEntry(fullText);
+  if (entry) {
+    const parsed = parseAmountNumber(entry.amount);
+    return {
+      value: parsed ? parsed.value : null,
+      unit: parsed ? parsed.unit : "",
+      text: entry.amount,
+      note: entry.note,
+      stackable: entry.stackable,
+      calc: entry.calc,
+    };
+  }
+
+  // フォールバック：旧テーブル（神攻略Wiki由来）
+  const legacy = PERCENT_MAP[base];
+  if (!legacy) return null;
   const mode = depth === "昏景" ? "deep" : "normal";
-  const table = entry[mode] || entry.deep || entry.normal;
+  const table = legacy[mode] || legacy.deep || legacy.normal;
   if (!table) return null;
   const v = table[String(value)];
   if (v === undefined) return null;
-  return { value: v, unit: entry.unit };
+  return { value: v, unit: legacy.unit };
+}
+
+// ビルド合算用：スキルが属する「強化枠」の情報を返す（同じ枠のスキル同士が重ね掛け対象）
+function getGroupInfo(base, value) {
+  const fullText = value === 0 ? base : `${base}+${value}`;
+
+  // 優先1：calc_data.json由来のダメージ計算枠データ（target・重ね掛け可否が明確）
+  const dmg = DAMAGE_TABLE[fullText];
+  if (dmg) {
+    return { target: dmg.target, type: "mult", pct: dmg.pct, stackable: dmg.stacks };
+  }
+
+  // 優先2：効果量データから乗算/加算を判定
+  const entry = lookupEffectEntry(fullText);
+  if (entry && entry.calc) {
+    const parsed = parseAmountNumber(entry.amount);
+    if (parsed) {
+      return {
+        target: fullText,
+        type: entry.calc === "乗算" ? "mult" : "add",
+        pct: entry.calc === "乗算" ? parsed.value : null,
+        amount: entry.calc === "加算" ? parsed.value : null,
+        unit: parsed.unit,
+        stackable: entry.stackable,
+      };
+    }
+  }
+  return null;
 }
 
 function formatPercent(p) {
   if (!p) return null;
+  if (p.text) return `＝${p.text}`;
   if (p.unit === "%") return `＝${p.value}%`;
   if (p.unit === "") return `＝${p.value}`;
-  if (p.unit.endsWith("+")) return `＝${p.unit}${p.value}`;
+  if (p.unit && p.unit.endsWith("+")) return `＝${p.unit}${p.value}`;
   return `＝${p.value}${p.unit}`;
 }
 
@@ -881,31 +973,94 @@ export default function RelicVault() {
   // ビルドにセット中の遺物から数値効果（％等）を集計する
   const buildEffectsSummary = useMemo(() => {
     if (!build) return [];
-    const map = new Map(); // key: base+category -> {base, unit, total, demerit:bool, items:[{relicName, value, pct}]}
+    const nameGroups = new Map(); // 同名スキルごとにまとめる（stackable判定はここに適用）
+    const demeritMap = new Map();
+
     build.slots.forEach((relicId) => {
       if (!relicId) return;
       const relic = relicById.get(relicId);
       if (!relic) return;
       relic.skills.forEach((s) => {
         if (s.numeric) {
+          const gi = getGroupInfo(s.numeric.base, s.numeric.value);
           const pct = getPercent(s.numeric.base, s.numeric.value, relic.depth);
-          const key = `up:${s.numeric.base}`;
-          const cur = map.get(key) || { base: s.numeric.base, unit: pct ? pct.unit : "", total: 0, demerit: false, items: [] };
-          const addVal = pct ? pct.value : s.numeric.value;
-          cur.total += addVal;
-          cur.items.push({ relicName: relic.name, value: s.numeric.value, pct });
-          map.set(key, cur);
+          const display = pct ? formatPercent(pct) : (s.numeric.value === 0 ? "無印" : `+${s.numeric.value}`);
+          const nameKey = s.numeric.value === 0 ? s.numeric.base : `${s.numeric.base}+${s.numeric.value}`;
+          const cur = nameGroups.get(nameKey) || {
+            name: nameKey,
+            target: gi ? gi.target : `目安:${s.numeric.base}`,
+            type: gi ? gi.type : "unknown",
+            unit: gi ? (gi.unit || (gi.type === "mult" ? "%" : "")) : (pct ? pct.unit : ""),
+            stackable: gi ? gi.stackable : null,
+            values: [],
+            entries: [],
+          };
+          cur.values.push(gi ? (gi.type === "mult" ? gi.pct : gi.amount) : (pct ? pct.value : s.numeric.value));
+          cur.entries.push({ relicName: relic.name, display });
+          nameGroups.set(nameKey, cur);
         }
         if (s.demeritNumeric) {
-          const key = `down:${s.demerit}`;
-          const cur = map.get(key) || { base: s.demerit, unit: s.demeritNumeric.label, total: 0, demerit: true, items: [] };
+          const key = s.demerit;
+          const cur = demeritMap.get(key) || { base: s.demerit, unit: s.demeritNumeric.label, total: 0, items: [] };
           cur.total += s.demeritNumeric.value;
-          cur.items.push({ relicName: relic.name, value: s.demeritNumeric.value, pct: null });
-          map.set(key, cur);
+          cur.items.push({ relicName: relic.name, value: s.demeritNumeric.value });
+          demeritMap.set(key, cur);
         }
       });
     });
-    return [...map.values()];
+
+    // ステップ1：同名スキルの重ね掛け判定（stackable:falseなら1回分のみ、trueなら重ね掛けで合成）
+    const nameContribs = [...nameGroups.values()].map((ng) => {
+      const nums = ng.values.filter((v) => typeof v === "number");
+      let contrib;
+      if (ng.type === "mult") {
+        contrib = ng.stackable === false
+          ? (nums.length ? Math.max(...nums) : 0)
+          : nums.reduce((mult, v) => mult * (1 + v / 100), 1); // 複利で合成、後でtarget単位でさらに掛け合わせる
+      } else {
+        contrib = ng.stackable === false
+          ? (nums.length ? Math.max(...nums) : 0)
+          : nums.reduce((a, b) => a + b, 0);
+      }
+      return { ...ng, contrib };
+    });
+
+    // ステップ2：同じtarget（強化枠）を共有する「別名」スキル同士は常に重ね掛けする
+    const targetGroups = new Map();
+    nameContribs.forEach((ng) => {
+      const cur = targetGroups.get(ng.target) || { target: ng.target, type: ng.type, unit: ng.unit, names: [], entries: [] };
+      cur.names.push(ng);
+      cur.entries.push(...ng.entries);
+      targetGroups.set(ng.target, cur);
+    });
+
+    const results = [];
+    targetGroups.forEach((g) => {
+      let totalLabel;
+      if (g.type === "mult") {
+        // 乗算枠：各「別名スキルの合成値」をさらに掛け合わせる（別名同士は常に重ね掛け可能）
+        let totalMult = 1;
+        g.names.forEach((ng) => { totalMult *= 1 + ng.contrib / 100; });
+        const totalPct = Math.round((totalMult - 1) * 10000) / 100;
+        totalLabel = `${totalPct >= 0 ? "+" : ""}${totalPct}%`;
+      } else if (g.type === "add") {
+        const total = Math.round(g.names.reduce((a, ng) => a + ng.contrib, 0) * 100) / 100;
+        totalLabel = `${total >= 0 ? "+" : ""}${total}${g.unit}`;
+      } else {
+        const total = Math.round(g.names.reduce((a, ng) => a + ng.contrib, 0) * 100) / 100;
+        totalLabel = `${total >= 0 ? "+" : ""}${total}${g.unit}（目安）`;
+      }
+      results.push({ target: g.target.replace(/^目安:/, ""), totalLabel, entries: g.entries, demerit: false });
+    });
+    demeritMap.forEach((d) => {
+      results.push({
+        target: d.base,
+        totalLabel: `${d.total > 0 ? "+" : ""}${d.total}${d.unit}`,
+        entries: d.items.map((it) => ({ relicName: it.relicName, display: `${it.value}${d.unit}` })),
+        demerit: true,
+      });
+    });
+    return results;
   }, [build, relicById]);
 
   const canAssign = (relic) =>
@@ -1259,21 +1414,21 @@ export default function RelicVault() {
 
             {buildEffectsSummary.length > 0 && (
               <div className="build-summary">
-                <div className="build-summary-title">このビルドの合計上昇・低下（同種効果の単純合算）</div>
+                <div className="build-summary-title">このビルドの合計上昇・低下（検証済みデータに基づく重ね掛け計算）</div>
                 <ul className="build-summary-list">
                   {buildEffectsSummary.map((e, i) => (
                     <li key={i} className={e.demerit ? "demerit" : "buff"}>
-                      {e.base}：{e.demerit ? "" : "合計 "}{e.total > 0 && !e.demerit ? "+" : ""}{Math.round(e.total * 100) / 100}{e.unit}
-                      {e.items.length > 1 && (
+                      {e.target}：{e.demerit ? "" : "合計 "}{e.totalLabel}
+                      {e.entries.length > 1 && (
                         <span className="build-summary-detail">
-                          （{e.items.map((it) => `${it.relicName}: ${it.pct ? formatPercent(it.pct) : it.value}`).join(" + ")}）
+                          （{e.entries.map((it) => `${it.relicName}: ${it.display}`).join(" + ")}）
                         </span>
                       )}
                     </li>
                   ))}
                 </ul>
                 <div className="build-summary-note">
-                  ※ ゲーム内の実際の加算式（乗算/加算の別）はスキルにより異なる場合があります。単純合計の目安としてご利用ください。
+                  ※「（目安）」表記があるものは重ね掛けルールのデータが無いため単純合算した参考値です。それ以外は検証データに基づき、同名スキルは重ね掛け不可なら1回分のみ・可能なら複利で合成し、別名スキル同士（同じ強化枠を共有するもの）は常に重ね掛けして計算しています。
                 </div>
               </div>
             )}
@@ -1417,10 +1572,19 @@ export default function RelicVault() {
                                 style={{ color: ns.fg, background: ns.bg }}
                                 title={CATEGORY_LABEL[n.category]}
                               >
-                                {n.value === 0 ? "無印" : `+${n.value}`}{pct ? ` ${formatPercent(pct)}` : ""}
+                                {n.value === 0 ? "無印" : `+${n.value}`}
                               </span>
                             )}
                           </span>
+                          {n && pct && pct.text && (
+                            <div className="effect-amount-text" title={pct.note || undefined}>
+                              {pct.text}
+                              {pct.note && <span className="effect-amount-note-mark">※</span>}
+                            </div>
+                          )}
+                          {n && pct && !pct.text && pct.value !== null && (
+                            <div className="effect-amount-text">{formatPercent(pct)}</div>
+                          )}
                           {n && range && (
                             <div className="range-text">
                               所持データ内の観測範囲：{range.min === 0 ? "無印" : `+${range.min}`}〜+{range.max}（{range.count}件中）
@@ -2266,6 +2430,18 @@ const GLOBAL_CSS = `
   font-family: 'Zen Kaku Gothic New', sans-serif;
   font-size: 10.5px;
   margin-top: 2px;
+}
+.effect-amount-text {
+  color: #8FB5A8;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 11px;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.effect-amount-note-mark {
+  color: #B9974A;
+  margin-left: 3px;
+  cursor: help;
 }
 .tag-input {
   background: #14100C;
