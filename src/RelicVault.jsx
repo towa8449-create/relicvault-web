@@ -1016,7 +1016,8 @@ export default function RelicVault() {
       if (ng.type === "mult") {
         contrib = ng.stackable === false
           ? (nums.length ? Math.max(...nums) : 0)
-          : nums.reduce((mult, v) => mult * (1 + v / 100), 1); // 複利で合成、後でtarget単位でさらに掛け合わせる
+          // 複利で倍率を合成した後、％に戻す（target段階でも同じ「％」の土俵で扱うため）
+          : (nums.reduce((mult, v) => mult * (1 + v / 100), 1) - 1) * 100;
       } else {
         contrib = ng.stackable === false
           ? (nums.length ? Math.max(...nums) : 0)
