@@ -23,6 +23,10 @@ const COLOR_STYLE = {
   "固有": { fg: "#B3A3E8", bg: "rgba(139,126,200,0.16)", ring: "#8B7EC8" },
 };
 
+/* 特殊アイテム（ストーリー・イベント入手の固有遺物）データベース：日本語名 -> {色, スキル一覧, 英語名}
+   ※「獣の夜」等、Night/Dark Nightで日本語表記が同名になるものは色を確定できないため未収録 */
+const SPECIAL_ITEMS_DB = {"にび色の砥石":{"color":"燃える","skills":["【追跡者】スキル使用時、通常攻撃で炎を纏った追撃を行う（大剣のみ）","物理攻撃力上昇"],"en":"Slate Whetstone"},"銀の雫":{"color":"燃える","skills":["【追跡者】アビリティ発動時、アーツゲージ増加","アーツゲージ自然蓄積+3","神秘+3"],"en":"Silver Tear"},"追跡者の耳飾り":{"color":"燃える","skills":["【追跡者】アーツ発動時、周囲を延焼","【追跡者】スキルの使用回数+1","攻撃命中時、スタミナ回復"],"en":"The Wylder's Earring"},"石の杭":{"color":"燃える","skills":["【守護者】スキルの持続時間延長","スキルクールタイム軽減+3"],"en":"Stone Stake"},"三冊目の本":{"color":"燃える","skills":["【守護者】斧槍タメ攻撃時、つむじ風が発生","斧槍の攻撃でHP回復"],"en":"Third Volume"},"魔女のブローチ":{"color":"滴る","skills":["【守護者】アーツ発動時、周囲の味方のHPを徐々に回復","【守護者】アビリティ発動中、ガード成功時、衝撃波が発生","生命力+3"],"en":"Witch's Brooch"},"砕けた魔女のブローチ":{"color":"滴る","skills":["【守護者】アーツ発動時、周囲の味方のHPを徐々に回復","【守護者】アビリティ発動中、ガード成功時、衝撃波が発生","生命力+3"],"en":"Cracked Witch's Brooch"},"割れた封蝋":{"color":"輝く","skills":["【鉄の目】弱点の持続時間を延長させる","致命の一撃で、ルーンを取得"],"en":"Cracked Sealing Wax"},"聖律の刃":{"color":"輝く","skills":["【鉄の目】アーツ発動後、刺突カウンター強化","出撃時の武器に聖攻撃力を付加","弓の攻撃力上昇"],"en":"Edge of Order"},"夜の痕跡":{"color":"静まる","skills":["【隠者】属性痕を集めた時、「魔術の地」が発動","魔力攻撃力上昇+2"],"en":"Vestige of Night"},"骨のような石":{"color":"静まる","skills":["【隠者】アーツ発動時、最大HP上昇","【隠者】アーツ発動時、自身が出血状態になり、攻撃力上昇","知力+3"],"en":"Bone-Like Stone"},"ちぎれた組み紐":{"color":"滴る","skills":["【無頼漢】スキル中に攻撃を受けると攻撃力と最大スタミナ上昇","筋力+3"],"en":"Torn Braided Cord"},"黒爪の首飾り":{"color":"輝く","skills":["トーテム・ステラの周囲で敵を倒した時、HP回復","敵を倒した時、アーツゲージ増加","強靭度+3"],"en":"Black Claw Necklace"},"祝福された花":{"color":"静まる","skills":["【執行者】スキル中、妖刀が解放状態になるとHP回復","技量+3"],"en":"Blessed Flowers"},"黄金の萌芽":{"color":"燃える","skills":["【執行者】アーツ発動中、咆哮でHP回復","HP低下時、周囲の味方を含めHPをゆっくりと回復","ガード成功時、HP回復"],"en":"Golden Sprout"},"頭冠のメダル":{"color":"静まる","skills":["【レディ】短剣による攻撃連続時、周囲の敵に、直近の出来事を再演","短剣の攻撃力上昇"],"en":"Crown Medal"},"祝福された鉄貨":{"color":"静まる","skills":["【レディ】アーツ発動中、敵撃破で攻撃力上昇","HP持続回復","生命力+3"],"en":"Blessed Iron Coin"},"金色の露":{"color":"輝く","skills":["【レディ】スキルのダメージ上昇","属性攻撃力が付加された時、属性攻撃力上昇"],"en":"Golden Dew"},"古びた懐中時計":{"color":"静まる","skills":["攻撃連続時、FP回復","技量+3"],"en":"Old Pocketwatch"},"薄汚れたフレーム":{"color":"滴る","skills":["攻撃を受けると攻撃力上昇","信仰+3"],"en":"Besmirched Frame"},"古びたミニアチュール":{"color":"滴る","skills":["【復讐者】アーツ発動時、霊炎の爆発を発生","【復讐者】アーツ発動時、自身のHPと引き換えに周囲の味方のHPを全回復","敵を倒した時、アーツゲージ増加"],"en":"Old Portrait"},"小さな化粧道具":{"color":"滴る","skills":["【復讐者】ファミリーと共闘中の間、自身を強化","自身と味方の取得ルーン増加"],"en":"Small Makeup Brush"},"清浄の雫":{"color":"燃える","skills":["【学者】アーツでリンクした敵対象に、継続ダメージ","敵を倒した時、アーツゲージ増加","属性カット率上昇"],"en":"Cleansing Tear"},"記録「後継者へ」":{"color":"輝く","skills":["【学者】スキルの進捗率の低下を抑制","【学者】スキル使用時、対象に含まれた味方の攻撃力上昇","スキルクールタイム軽減+3"],"en":"Note My Dear Successor"},"ガラスの首飾り":{"color":"静まる","skills":["【葬儀屋】アーツ発動時、攻撃力上昇","攻撃連続時、攻撃力上昇","アーツゲージ自然蓄積+3"],"en":"Glass Necklace"},"片眼鏡の革袋":{"color":"滴る","skills":["【葬儀屋】祈祷を使用して、自身に補助効果発生時物理攻撃力上昇","魔術/祈祷、効果時間延長","物理攻撃力+2"],"en":"Leather Monocle Case"},"忌み鬼の呪物":{"color":"滴る","skills":["武器の持ち替え時、物理攻撃力上昇","投擲ナイフの攻撃力上昇","生命力+1"],"en":"Fell Omen Fetish"},"王の夜":{"color":"滴る","skills":["武器の持ち替え時、いずれかの属性攻撃力を付加","属性攻撃力が付加された時、属性攻撃力上昇","武器の持ち替え時、物理攻撃力上昇"],"en":"Night of the Lord"},"安寧者の遺志":{"color":"滴る","skills":["近接攻撃力上昇","戦技攻撃力上昇","FP持続回復"],"en":"The Will of the Balancers"},"安寧の遺志":{"color":"燃える","skills":["近接攻撃力上昇","戦技攻撃力上昇","カット率低下時、稀に敵から受ける攻撃を無効化"],"en":"The Will of Balance"},"瓦礫の夜":{"color":"燃える","skills":["状態異常ゲージがある時、徐々に攻撃力上昇","被ダメージ時、腐敗の状態異常を付加","周囲で腐敗状態の発生時、HP持続回復"],"en":"The Night of Dregs"}};
+
 function parseRelic(name) {
   let rest = name;
   let slot = null;
@@ -38,6 +42,12 @@ function parseRelic(name) {
   if (rest === "景色") depth = "景色";
   else if (rest === "昏景") depth = "昏景";
   else special = true;
+
+  // 固有遺物として認識できなかった場合、既知の特殊アイテムDBから色を補完する
+  if (special && !color) {
+    const known = SPECIAL_ITEMS_DB[name];
+    if (known) color = known.color;
+  }
   return { slot, color, depth, special };
 }
 
@@ -257,7 +267,8 @@ function buildRelics(raw) {
       }))
       .map((s) => ({ ...s, importanceKey: skillFullText(s) }));
     const effectiveSlot = meta.slot ?? skills.length;
-    const effectiveColor = meta.special ? "固有" : meta.color;
+    // 固有遺物でも、特殊アイテムDBで色が判明していればその色を使う（ビルドの色マッチ判定に使えるようにするため）
+    const effectiveColor = meta.color || "固有";
     const searchBlob = (name + " " + (note || "") + " " + skills.map(s => s.text + " " + s.demerit).join(" ")).toLowerCase();
     return { id, name, note: note || "", skills, ...meta, effectiveSlot, effectiveColor, searchBlob };
   });
@@ -394,16 +405,17 @@ function buildDominanceMap(relics, overrides) {
     groups.get(key).push(r);
   });
 
-  const map = new Map(); // id -> [{id,name,type:'full'|'partial'}]
+  const map = new Map(); // id -> [{id,type:'full'|'partial',skills:[skillText,...]}]
   groups.forEach((group) => {
     for (const base of group) {
       const supersededBy = [];
       for (const cand of group) {
         if (cand.id === base.id) continue;
+        const skills = cand.skills.map((s) => s.text);
         if (dominatesOrEqual(cand, base)) {
-          supersededBy.push({ id: cand.id, name: cand.name, type: "full" });
+          supersededBy.push({ id: cand.id, type: "full", skills });
         } else if (partiallyDominates(cand, base, overrides)) {
-          supersededBy.push({ id: cand.id, name: cand.name, type: "partial" });
+          supersededBy.push({ id: cand.id, type: "partial", skills });
         }
       }
       if (supersededBy.length) {
@@ -416,7 +428,7 @@ function buildDominanceMap(relics, overrides) {
 }
 
 /* ---------- 盃（献器）データ：色スロット構成（通常/深層） 出典：神攻略Wiki(kamikouryaku.net) ---------- */
-const CHALICE_ORDER = ["追跡者", "守護者", "鉄の目", "レディ", "無頼漢", "復讐者", "隠者", "執行者", "学者", "葬儀屋", "共通"];
+const CHALICE_ORDER = ["追跡者", "守護者", "鉄の目", "レディ", "無頼漢", "復讐者", "隠者", "執行者", "学者", "葬儀屋"];
 const CHALICES2 = {"共通":[["黄金樹の聖杯",["輝く","輝く","輝く"],["輝く","輝く","輝く"],"小壺商人のバザー (ラスボス撃破後)"],["霊樹の聖杯",["静まる","静まる","静まる"],["静まる","静まる","静まる"],"小壺商人のバザー (夜の王4体撃破後)"],["巨人樹の聖杯",["滴る","滴る","滴る"],["滴る","滴る","滴る"],"小壺商人のバザー (ラスボス以外の夜の王7体撃破後)"],["影樹の聖杯",["燃える","燃える","燃える"],["燃える","燃える","燃える"],"小壺商人のバザー (瓦礫の王撃破後)"]],"追跡者":[["追跡者の器",["燃える","燃える","滴る"],["燃える","燃える","滴る"],"初期"],["追跡者の盃",["輝く","静まる","静まる"],["輝く","静まる","静まる"],"小壺商人のバザー (グラディウス撃破後)"],["追跡者の高杯",["燃える","輝く","無"],["燃える","滴る","静まる"],"追跡者Chapter5達成"],["煤けた追跡者の器",["滴る","滴る","輝く"],["滴る","滴る","輝く"],"コレクターの看板"],["封じられた追跡者の器",["滴る","燃える","燃える"],["静まる","輝く","輝く"],"コレクターの看板"],["朽ちた追跡者の盃",["滴る","静まる","輝く"],["滴る","静まる","輝く"],"コレクターの看板(DLCで追加)"],["忘れられた追跡者の盃",["静まる","静まる","輝く"],["燃える","静まる","無"],"コレクターの看板(DLCで追加)"]],"守護者":[["守護者の器",["燃える","輝く","輝く"],["燃える","輝く","輝く"],"初期"],["守護者の盃",["滴る","滴る","静まる"],["滴る","滴る","静まる"],"小壺商人のバザー (グラディウス撃破後)"],["守護者の高杯",["滴る","輝く","無"],["燃える","滴る","輝く"],"守護者Chapter6達成"],["煤けた守護者の器",["燃える","静まる","静まる"],["燃える","静まる","静まる"],"コレクターの看板"],["封じられた守護者の器",["輝く","輝く","燃える"],["静まる","静まる","輝く"],"コレクターの看板"],["朽ちた守護者の盃",["輝く","静まる","静まる"],["輝く","静まる","静まる"],"コレクターの看板(DLCで追加)"],["忘れられた守護者の盃",["静まる","滴る","滴る"],["燃える","滴る","無"],"コレクターの看板(DLCで追加)"]],"鉄の目":[["鉄の目の器",["輝く","静まる","静まる"],["輝く","静まる","静まる"],"初期"],["鉄の目の盃",["燃える","滴る","輝く"],["燃える","滴る","輝く"],"小壺商人のバザー (グラディウス撃破後)"],["鉄の目の高杯",["燃える","静まる","無"],["燃える","燃える","静まる"],"鉄の目Chapter4達成"],["煤けた鉄の目の器",["滴る","輝く","輝く"],["滴る","輝く","輝く"],"コレクターの看板"],["封じられた鉄の目の器",["静まる","静まる","輝く"],["滴る","滴る","燃える"],"コレクターの看板"],["朽ちた鉄の目の盃",["滴る","滴る","静まる"],["滴る","滴る","静まる"],"コレクターの看板(DLCで追加)"],["忘れられた鉄の目の盃",["輝く","滴る","燃える"],["輝く","静まる","無"],"コレクターの看板(DLCで追加)"]],"レディ":[["レディの器",["燃える","滴る","滴る"],["燃える","滴る","滴る"],"初期"],["レディの盃",["輝く","輝く","静まる"],["輝く","輝く","静まる"],"小壺商人のバザー (グラディウス撃破後)"],["レディの高杯",["滴る","輝く","無"],["燃える","滴る","輝く"],"レディChapter5達成"],["煤けたレディの器",["燃える","燃える","静まる"],["燃える","燃える","静まる"],"コレクターの看板"],["封じられたレディの器",["滴る","滴る","燃える"],["静まる","静まる","輝く"],"コレクターの看板"],["朽ちたレディの盃",["滴る","静まる","静まる"],["滴る","静まる","静まる"],"コレクターの看板(DLCで追加)"],["忘れられたレディの盃",["静まる","輝く","輝く"],["燃える","静まる","無"],"コレクターの看板(DLCで追加)"]],"無頼漢":[["無頼漢の器",["燃える","静まる","静まる"],["燃える","静まる","静まる"],"初期"],["無頼漢の盃",["燃える","滴る","輝く"],["燃える","滴る","輝く"],"小壺商人のバザー (グラディウス撃破後)"],["無頼漢の高杯",["燃える","燃える","無"],["燃える","輝く","輝く"],"無頼漢Chapter4達成"],["煤けた無頼漢の器",["滴る","滴る","静まる"],["滴る","滴る","静まる"],"コレクターの看板"],["封じられた無頼漢の器",["静まる","静まる","燃える"],["輝く","滴る","滴る"],"コレクターの看板"],["朽ちた無頼漢の盃",["輝く","輝く","静まる"],["輝く","輝く","静まる"],"コレクターの看板(DLCで追加)"],["忘れられた無頼漢の盃",["輝く","滴る","燃える"],["燃える","静まる","無"],"コレクターの看板(DLCで追加)"]],"復讐者":[["復讐者の器",["滴る","滴る","輝く"],["滴る","滴る","輝く"],"初期"],["復讐者の盃",["燃える","燃える","静まる"],["燃える","燃える","静まる"],"小壺商人のバザー (グラディウス撃破後)"],["復讐者の高杯",["滴る","静まる","無"],["滴る","輝く","静まる"],"復讐者Chapter5達成"],["煤けた復讐者の器",["燃える","輝く","輝く"],["燃える","輝く","輝く"],"コレクターの看板"],["封じられた復讐者の器",["輝く","滴る","滴る"],["静まる","静まる","燃える"],"コレクターの看板"],["朽ちた復讐者の盃",["燃える","燃える","輝く"],["燃える","燃える","輝く"],"コレクターの看板(DLCで追加)"],["忘れられた復讐者の盃",["静まる","燃える","燃える"],["輝く","静まる","無"],"コレクターの看板(DLCで追加)"]],"隠者":[["隠者の器",["滴る","滴る","静まる"],["滴る","滴る","静まる"],"初期"],["隠者の盃",["燃える","滴る","輝く"],["燃える","滴る","輝く"],"小壺商人のバザー (グラディウス撃破後)"],["隠者の高杯",["輝く","静まる","無"],["滴る","静まる","静まる"],"隠者Chapter2達成"],["煤けた隠者の器",["燃える","燃える","輝く"],["燃える","燃える","輝く"],"コレクターの看板"],["封じられた隠者の器",["静まる","滴る","滴る"],["輝く","輝く","燃える"],"コレクターの看板"],["朽ちた隠者の盃",["燃える","燃える","滴る"],["燃える","燃える","滴る"],"コレクターの看板(DLCで追加)"],["忘れられた隠者の盃",["輝く","滴る","燃える"],["滴る","静まる","無"],"コレクターの看板(DLCで追加)"]],"執行者":[["執行者の器",["燃える","輝く","輝く"],["燃える","輝く","輝く"],"初期"],["執行者の盃",["燃える","滴る","静まる"],["燃える","滴る","静まる"],"小壺商人のバザー (グラディウス撃破後)"],["執行者の高杯",["滴る","輝く","無"],["輝く","輝く","静まる"],"執行者Chapter2達成"],["煤けた執行者の器",["燃える","燃える","滴る"],["燃える","燃える","滴る"],"コレクターの看板"],["封じられた執行者の器",["輝く","輝く","燃える"],["静まる","静まる","滴る"],"コレクターの看板"],["朽ちた執行者の盃",["燃える","燃える","輝く"],["燃える","燃える","輝く"],"コレクターの看板(DLCで追加)"],["忘れられた執行者の盃",["静まる","滴る","燃える"],["輝く","静まる","無"],"コレクターの看板(DLCで追加)"]],"学者":[["学者の器",["燃える","燃える","輝く"],["燃える","燃える","輝く"],"初期"],["学者の盃",["滴る","静まる","輝く"],["滴る","静まる","輝く"],"小壺商人のバザー(加入後)"],["学者の高杯",["燃える","滴る","無"],["燃える","輝く","輝く"],"学者Chapter3達成"],["煤けた学者の器",["滴る","静まる","静まる"],["滴る","静まる","静まる"],"コレクターの看板"],["封じられた学者の器",["輝く","燃える","燃える"],["静まる","滴る","滴る"],"コレクターの看板"],["朽ちた学者の盃",["滴る","滴る","静まる"],["滴る","滴る","静まる"],"コレクターの看板"],["忘れられた学者の盃",["輝く","静まる","滴る"],["燃える","静まる","無"],"コレクターの看板"]],"葬儀屋":[["葬儀屋の器",["滴る","静まる","静まる"],["滴る","静まる","静まる"],"初期"],["葬儀屋の盃",["燃える","輝く","輝く"],["燃える","輝く","輝く"],"小壺商人のバザー(加入後)"],["葬儀屋の高杯",["静まる","輝く","無"],["滴る","静まる","輝く"],"葬儀屋Chapter5達成"],["煤けた葬儀屋の器",["燃える","燃える","滴る"],["燃える","燃える","滴る"],"コレクターの看板"],["封じられた葬儀屋の器",["静まる","静まる","滴る"],["輝く","燃える","燃える"],"コレクターの看板"],["朽ちた葬儀屋の盃",["燃える","滴る","滴る"],["燃える","滴る","滴る"],"コレクターの看板"],["忘れられた葬儀屋の盃",["輝く","輝く","燃える"],["滴る","輝く","無"],"コレクターの看板"]]};
 const CHALICE_NOTE = "※出典：神攻略Wiki（kamikouryaku.net）。左3枠＝通常スロット、右3枠＝深層スロット（深き夜クリア後に解放）。";
 
@@ -656,6 +668,17 @@ function downloadJson(filename, obj) {
   URL.revokeObjectURL(url);
 }
 
+// 書き出しファイル名用：日本時間（JST, UTC+9固定）で "YYYY-MM-DD_HHmm" を返す
+function jstTimestamp() {
+  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000); // UTCに+9時間してJST時刻として扱う
+  const y = jst.getUTCFullYear();
+  const mo = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(jst.getUTCDate()).padStart(2, "0");
+  const h = String(jst.getUTCHours()).padStart(2, "0");
+  const mi = String(jst.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${d}_${h}${mi}`;
+}
+
 export default function RelicVault() {
   const [slotFilter, setSlotFilter] = useState(new Set());
   const [colorFilter, setColorFilter] = useState(new Set());
@@ -774,7 +797,7 @@ export default function RelicVault() {
   }, [pasteDataText]);
 
   const handleExportData = useCallback(() => {
-    downloadJson(`relics_export_${new Date().toISOString().slice(0, 10)}.json`, toExportFormat(rawData));
+    downloadJson(`relics_export_${jstTimestamp()}.json`, toExportFormat(rawData));
   }, [rawData]);
 
   /* window.confirmはアーティファクトのサンドボックスでブロックされることがあるため、
@@ -808,7 +831,7 @@ export default function RelicVault() {
 
   /* 個人設定（お気に入り・タグ・ビルド・重要度調整）のインポート/エクスポート */
   const handleExportSettings = useCallback(() => {
-    downloadJson(`relicvault_settings_${new Date().toISOString().slice(0, 10)}.json`, {
+    downloadJson(`relicvault_settings_${jstTimestamp()}.json`, {
       version: 3,
       exportedAt: new Date().toISOString(),
       meta,
@@ -1006,7 +1029,8 @@ export default function RelicVault() {
   );
 
   const getChaliceEntry = (charName, chaliceLabel) =>
-    (CHALICES2[charName] || []).find(([n]) => n === chaliceLabel);
+    (CHALICES2[charName] || []).find(([n]) => n === chaliceLabel) ||
+    (CHALICES2["共通"] || []).find(([n]) => n === chaliceLabel);
 
   const applyChaliceFilter = (charName, chaliceLabel, mode) => {
     if (!charName || !chaliceLabel) return;
@@ -1570,7 +1594,7 @@ export default function RelicVault() {
             disabled={!chaliceChar}
             value={chaliceName}
             onChange={(v) => selectChalice(chaliceChar, v)}
-            options={(CHALICES2[chaliceChar] || []).map(([n, normalSlots, deepSlots]) => ({
+            options={[...(CHALICES2[chaliceChar] || []), ...(CHALICES2["共通"] || [])].map(([n, normalSlots, deepSlots]) => ({
               value: n,
               label: n,
               colors: normalSlots,
@@ -1754,14 +1778,10 @@ export default function RelicVault() {
             </span>
           </div>
         )}
-        {statCategory !== "none" && statCategory !== "demerit" && statBase !== "all" && rangeOf(NUMERIC_STATS, statCategory, statBase) && (
+        {statCategory !== "none" && statCategory !== "demerit" && statBase !== "all" && statBaseHasPercent && PERCENT_MAP[statBase] && (
           <div className="chalice-info">
-            「{statBase}」の所持データ内観測範囲：+{rangeOf(NUMERIC_STATS, statCategory, statBase).min}〜+{rangeOf(NUMERIC_STATS, statCategory, statBase).max}
-            （{rangeOf(NUMERIC_STATS, statCategory, statBase).count}件）
-            {statBaseHasPercent && PERCENT_MAP[statBase] && (
-              <>　実際の効果量：{Object.entries((PERCENT_MAP[statBase].deep || PERCENT_MAP[statBase].normal))
-                .map(([k, v]) => `${k === "0" ? "無印" : "+" + k}→${v}${PERCENT_MAP[statBase].unit}`).join(" / ")}</>
-            )}
+            実際の効果量：{Object.entries((PERCENT_MAP[statBase].deep || PERCENT_MAP[statBase].normal))
+              .map(([k, v]) => `${k === "0" ? "無印" : "+" + k}→${v}${PERCENT_MAP[statBase].unit}`).join(" / ")}
           </div>
         )}
         {statCategory === "demerit" && statBase !== "all" && DEMERIT_MAP[statBase] && (
@@ -1844,7 +1864,6 @@ export default function RelicVault() {
                     {r.skills.map((s, i) => {
                       const n = s.numeric;
                       const ns = n ? CATEGORY_STYLE[n.category] : null;
-                      const range = n ? rangeOf(NUMERIC_STATS, n.category, n.base) : null;
                       const pct = n ? getPercent(n.base, n.value, r.depth) : null;
                       const dn = s.demeritNumeric;
                       return (
@@ -1863,18 +1882,8 @@ export default function RelicVault() {
                           </span>
                           {n && pct && pct.text && (
                             <div className="effect-amount-text" title={pct.note || undefined}>
-                              {pct.conditional && pct.condition && pct.calc && pct.calc !== "計算しない"
-                                ? `${pct.condition}、${pct.text}`
-                                : pct.text}
+                              {pct.text}
                               {pct.note && <span className="effect-amount-note-mark">※</span>}
-                            </div>
-                          )}
-                          {n && pct && !pct.text && pct.value !== null && (
-                            <div className="effect-amount-text">{formatPercent(pct)}</div>
-                          )}
-                          {n && range && (
-                            <div className="range-text">
-                              所持データ内の観測範囲：{range.min === 0 ? "無印" : `+${range.min}`}〜+{range.max}（{range.count}件中）
                             </div>
                           )}
                           {s.demerit && (
@@ -1892,7 +1901,10 @@ export default function RelicVault() {
                     const supersede = dominanceMap.get(r.id);
                     const hasFull = supersede.some((x) => x.type === "full");
                     const label = hasFull ? "完全上位互換あり。" : "上位互換あり";
-                    const shown = supersede.slice(0, 2).map((x) => `${x.name}${x.type === "partial" ? "（部分）" : ""}`).join("、");
+                    const shown = supersede.slice(0, 2).map((x) => {
+                      const skillsText = x.skills.join("／");
+                      return x.type === "partial" ? `[${skillsText}]（部分）` : `[${skillsText}]`;
+                    }).join("、");
                     const more = supersede.length - 2;
                     return (
                       <div className="dominance-badge">
