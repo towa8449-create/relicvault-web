@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { storage } from "./storage.js";
-import { Star, Search, Moon } from "lucide-react";
+import { Star, Search, Moon, Trash2 } from "lucide-react";
 
 /* ---------- フォント ---------- */
 const FontLoader = () => (
@@ -250,9 +250,18 @@ function skillFullText(s) {
   return s.numeric ? (s.numeric.value === 0 ? s.numeric.base : `${s.numeric.base}+${s.numeric.value}`) : s.text;
 }
 
+// rawDataの行配列を [name,s1,d1,s2,d2,s3,d3,id,note,fav,sell] の11要素に揃える（旧形式の短い行にも対応）
+function padRow(row) {
+  const r = [...row];
+  while (r.length < 11) {
+    r.push(r.length === 8 ? "" : false);
+  }
+  return r;
+}
+
 function buildRelics(raw) {
   return raw.map((row) => {
-    const [name, s1, d1, s2, d2, s3, d3, id, note] = row;
+    const [name, s1, d1, s2, d2, s3, d3, id, note, fav, sell] = row;
     const meta = parseRelic(name);
     const skills = [
       s1 ? { text: s1, demerit: d1 } : null,
@@ -270,7 +279,10 @@ function buildRelics(raw) {
     // 固有遺物でも、特殊アイテムDBで色が判明していればその色を使う（ビルドの色マッチ判定に使えるようにするため）
     const effectiveColor = meta.color || "固有";
     const searchBlob = (name + " " + (note || "") + " " + skills.map(s => s.text + " " + s.demerit).join(" ")).toLowerCase();
-    return { id, name, note: note || "", skills, ...meta, effectiveSlot, effectiveColor, searchBlob };
+    return {
+      id, name, note: note || "", fav: !!fav, sell: !!sell,
+      skills, ...meta, effectiveSlot, effectiveColor, searchBlob,
+    };
   });
 }
 
@@ -400,6 +412,7 @@ function partiallyDominates(cand, base, overrides) {
 function buildDominanceMap(relics, overrides) {
   const groups = new Map();
   relics.forEach((r) => {
+    if (r.sell) return; // 売却フラグ済みの遺物は上位互換の計算対象から除外する
     const key = `${r.effectiveSlot}|${r.effectiveColor}|${r.depth}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
@@ -630,6 +643,8 @@ function normalizeImportedData(json) {
       o.skill3_demerit ?? (o.skills && o.skills[2] && o.skills[2].demerit) ?? "",
       o.item_id ?? o.id ?? "",
       o.note ?? "",
+      !!o.fav,
+      !!(o.sell ?? o.sell_flag),
     ]);
   }
   throw new Error("認識できないデータ形式です");
@@ -637,7 +652,7 @@ function normalizeImportedData(json) {
 
 // 内部のコンパクト行配列を、友人と共有しやすいオブジェクト形式に変換してエクスポートする
 function toExportFormat(raw) {
-  const relics = raw.map(([name, s1, d1, s2, d2, s3, d3, id, note]) => ({
+  const relics = raw.map(([name, s1, d1, s2, d2, s3, d3, id, note, fav, sell]) => ({
     relic_name: name,
     skill1: s1 || "",
     skill1_demerit: d1 || "",
@@ -647,6 +662,8 @@ function toExportFormat(raw) {
     skill3_demerit: d3 || "",
     item_id: id || "",
     note: note || "",
+    fav: !!fav,
+    sell: !!sell,
   }));
   return {
     version: 1,
@@ -685,11 +702,11 @@ export default function RelicVault() {
   const [depthFilter, setDepthFilter] = useState(new Set());
   const [keyword, setKeyword] = useState("");
   const [favOnly, setFavOnly] = useState(false);
+  const [sellOnly, setSellOnly] = useState(false);
   const [showObsoleteOnly, setShowObsoleteOnly] = useState(false);
   const [importanceMin, setImportanceMin] = useState(""); // ""=指定なし
   const [importanceMax, setImportanceMax] = useState("");
   const [selectedEffects, setSelectedEffects] = useState([]); // [{value,label}]
-  const [meta, setMeta] = useState({}); // { [id]: { fav: bool, tag: string } }
   const [importanceOverrides, setImportanceOverrides] = useState({}); // { [skillFullText]: number(1-10) } ユーザー調整分のみ
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loaded, setLoaded] = useState(false);
@@ -719,12 +736,13 @@ export default function RelicVault() {
   const [statMin, setStatMin] = useState(0);
   const [statUsePercent, setStatUsePercent] = useState(false); // ％基準で絞り込み/並び替え
 
-  /* 永続化：お気に入り・タグ・ビルド枠 */
+  /* 永続化：ビルド枠・重要度調整・遺物データ本体 */
   useEffect(() => {
     (async () => {
+      let legacyMeta = null;
       try {
         const res = await storage.get("relic-meta", false);
-        if (res && res.value) setMeta(JSON.parse(res.value));
+        if (res && res.value) legacyMeta = JSON.parse(res.value); // 旧形式（お気に入りが個人設定側にあった名残）
       } catch (e) {
         // 未保存キー。初期状態のまま
       }
@@ -744,7 +762,21 @@ export default function RelicVault() {
         const res3 = await storage.get("relic-rawdata", false);
         if (res3 && res3.value) {
           const parsed = JSON.parse(res3.value);
-          const rows = normalizeImportedData(parsed);
+          let rows = normalizeImportedData(parsed);
+          // 旧形式のお気に入り（relic-meta）が残っていれば、遺物データ側に一度だけ取り込む
+          if (legacyMeta) {
+            rows = rows.map((row) => {
+              const m = legacyMeta[row[7]];
+              if (m && m.fav) {
+                const r = padRow(row);
+                r[9] = true;
+                return r;
+              }
+              return row;
+            });
+            storage.set("relic-rawdata", JSON.stringify(rows), false).catch(() => {});
+            storage.delete("relic-meta", false).catch(() => {});
+          }
           setRawData(rows); // 空配列（箱だけの状態）も含めてそのまま反映する
         }
       } catch (e) {
@@ -829,22 +861,18 @@ export default function RelicVault() {
     );
   }, []);
 
-  /* 個人設定（お気に入り・タグ・ビルド・重要度調整）のインポート/エクスポート */
+  /* 個人設定（ビルド・重要度調整）のインポート/エクスポート
+     ※お気に入り・売却フラグ・メモは遺物データ本体（JSON）側で管理するため、ここには含めない */
   const handleExportSettings = useCallback(() => {
     downloadJson(`relicvault_settings_${jstTimestamp()}.json`, {
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
-      meta,
       builds,
       importanceOverrides,
     });
-  }, [meta, builds, importanceOverrides]);
+  }, [builds, importanceOverrides]);
 
   const applySettingsJson = (json) => {
-    if (json.meta && typeof json.meta === "object") {
-      setMeta(json.meta);
-      storage.set("relic-meta", JSON.stringify(json.meta), false).catch(() => {});
-    }
     if (json.builds && typeof json.builds === "object") {
       setBuilds(json.builds);
       storage.set("relic-builds", JSON.stringify(json.builds), false).catch(() => {});
@@ -857,6 +885,22 @@ export default function RelicVault() {
     if (json.importanceOverrides && typeof json.importanceOverrides === "object") {
       setImportanceOverrides(json.importanceOverrides);
       storage.set("relic-importance-overrides", JSON.stringify(json.importanceOverrides), false).catch(() => {});
+    }
+    // 旧形式（version 3以前）のお気に入りは、遺物データ側にその場で取り込む
+    if (json.meta && typeof json.meta === "object") {
+      setRawData((prev) => {
+        const next = prev.map((row) => {
+          const m = json.meta[row[7]];
+          if (m && m.fav) {
+            const r = padRow(row);
+            r[9] = true;
+            return r;
+          }
+          return row;
+        });
+        storage.set("relic-rawdata", JSON.stringify(next), false).catch(() => {});
+        return next;
+      });
     }
   };
 
@@ -893,11 +937,6 @@ export default function RelicVault() {
     }
   }, [pasteSettingsText]);
 
-  const persist = useCallback((next) => {
-    setMeta(next);
-    storage.set("relic-meta", JSON.stringify(next), false).catch(() => {});
-  }, []);
-
   const persistBuild = useCallback((charName, next) => {
     setBuilds((prev) => {
       const updated = { ...prev };
@@ -924,10 +963,27 @@ export default function RelicVault() {
     storage.set("relic-importance-overrides", JSON.stringify({}), false).catch(() => {});
   }, []);
 
+  // お気に入り・売却フラグ・メモは、個人設定ではなく遺物データ本体（JSON）に保存する
   const toggleFav = (id) => {
-    const cur = meta[id] || {};
-    const next = { ...meta, [id]: { ...cur, fav: !cur.fav } };
-    persist(next);
+    const next = rawData.map((row) => {
+      if (row[7] !== id) return row;
+      const r = padRow(row);
+      r[9] = !r[9];
+      return r;
+    });
+    setRawData(next);
+    storage.set("relic-rawdata", JSON.stringify(next), false).catch(() => {});
+  };
+
+  const toggleSell = (id) => {
+    const next = rawData.map((row) => {
+      if (row[7] !== id) return row;
+      const r = padRow(row);
+      r[10] = !r[10];
+      return r;
+    });
+    setRawData(next);
+    storage.set("relic-rawdata", JSON.stringify(next), false).catch(() => {});
   };
 
   /* 遺物データの個別編集・削除 */
@@ -937,9 +993,13 @@ export default function RelicVault() {
     return map;
   }, [rawData]);
 
-  // メモ（コメント）は個人設定ではなく、遺物データ本体（JSONのnote項目）に保存する
   const updateNote = (id, note) => {
-    const next = rawData.map((row) => (row[7] === id ? [...row.slice(0, 8), note] : row));
+    const next = rawData.map((row) => {
+      if (row[7] !== id) return row;
+      const r = padRow(row);
+      r[8] = note;
+      return r;
+    });
     setRawData(next);
     storage.set("relic-rawdata", JSON.stringify(next), false).catch(() => {});
   };
@@ -970,12 +1030,14 @@ export default function RelicVault() {
     if (!editingId || !editDraft) return;
     const next = rawData.map((row) => {
       if (row[7] !== editingId) return row;
+      const old = padRow(row);
       return [
         editDraft.name, editDraft.skill1, editDraft.demerit1,
         editDraft.skill2, editDraft.demerit2,
         editDraft.skill3, editDraft.demerit3,
         row[7],
         editDraft.note,
+        old[9], old[10], // お気に入り・売却フラグは編集フォームの対象外なのでそのまま保持
       ];
     });
     setRawData(next);
@@ -991,11 +1053,6 @@ export default function RelicVault() {
       const next = rawData.filter((row) => row[7] !== id);
       setRawData(next);
       storage.set("relic-rawdata", JSON.stringify(next), false).catch(() => {});
-      if (meta[id]) {
-        const nextMeta = { ...meta };
-        delete nextMeta[id];
-        persist(nextMeta);
-      }
       if (Object.keys(builds).some((c) => builds[c].slots.includes(id))) {
         setBuilds((prev) => {
           const updated = {};
@@ -1019,7 +1076,7 @@ export default function RelicVault() {
     setVisibleCount(PAGE_SIZE);
   };
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, statCategory, statBase, statMin, statUsePercent, showObsoleteOnly, selectedEffects]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, showObsoleteOnly, selectedEffects]);
   useEffect(() => { setStatBase("all"); setStatUsePercent(false); }, [statCategory]);
 
   // AND検索: 全角/半角スペース区切りのトークンを全て満たす
@@ -1291,7 +1348,8 @@ export default function RelicVault() {
       if (slotFilter.size > 0 && !slotFilter.has(r.effectiveSlot > 3 ? 3 : r.effectiveSlot)) return false;
       if (colorFilter.size > 0 && !colorFilter.has(r.effectiveColor)) return false;
       if (depthFilter.size > 0 && !r.special && !depthFilter.has(r.depth)) return false;
-      if (favOnly && !(meta[r.id] && meta[r.id].fav)) return false;
+      if (favOnly && !r.fav) return false;
+      if (sellOnly && !r.sell) return false;
       if (showObsoleteOnly && !dominanceMap.has(r.id)) return false;
       if (importanceMin !== "" && relicImportanceMap.get(r.id) < Number(importanceMin)) return false;
       if (importanceMax !== "" && relicImportanceMap.get(r.id) > Number(importanceMax)) return false;
@@ -1315,7 +1373,7 @@ export default function RelicVault() {
       });
     }
     return list;
-  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, kwTokens, meta, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, showObsoleteOnly, dominanceMap, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
+  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, showObsoleteOnly, dominanceMap, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
 
   const visible = filtered.slice(0, visibleCount);
   const statBaseOptions = statCategory === "demerit" ? DEMERIT_BASES : (statCategory !== "none" ? NUMERIC_BASES[statCategory] : []);
@@ -1523,6 +1581,10 @@ export default function RelicVault() {
           </Chip>
           <Chip active={showObsoleteOnly} onClick={() => setShowObsoleteOnly((v) => !v)} colorRing="#B4553A">
             売却候補（上位互換あり）
+          </Chip>
+          <Chip active={sellOnly} onClick={() => setSellOnly((v) => !v)} colorRing="#B4553A">
+            <Trash2 size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
+            売却フラグ済み
           </Chip>
         </div>
 
@@ -1799,9 +1861,8 @@ export default function RelicVault() {
         )}
         {visible.map((r) => {
           const cs = COLOR_STYLE[r.effectiveColor] || COLOR_STYLE["固有"];
-          const m = meta[r.id] || {};
           return (
-            <article key={r.id} className="card" style={{ boxShadow: `inset 3px 0 0 ${cs.ring}` }}>
+            <article key={r.id} className={`card${r.sell ? " sell-flagged" : ""}`} style={{ boxShadow: `inset 3px 0 0 ${cs.ring}` }}>
               <div className="card-top">
                 <div className="dots" style={{ color: cs.fg }}>
                   {"●".repeat(r.effectiveSlot > 3 ? 3 : r.effectiveSlot || 1)}
@@ -1812,8 +1873,15 @@ export default function RelicVault() {
                       <Moon size={11} /> 昏景
                     </span>
                   )}
+                  <button
+                    className={`sell-btn${r.sell ? " active" : ""}`}
+                    onClick={() => toggleSell(r.id)}
+                    title={r.sell ? "売却フラグを解除" : "売却候補としてフラグを付ける"}
+                  >
+                    <Trash2 size={15} />
+                  </button>
                   <button className="fav-btn" onClick={() => toggleFav(r.id)}>
-                    <Star size={16} fill={m.fav ? "#D6B94A" : "none"} color={m.fav ? "#D6B94A" : "#5A5142"} />
+                    <Star size={16} fill={r.fav ? "#D6B94A" : "none"} color={r.fav ? "#D6B94A" : "#5A5142"} />
                   </button>
                 </div>
               </div>
@@ -2708,6 +2776,19 @@ const GLOBAL_CSS = `
   cursor: pointer;
   padding: 2px;
   display: flex;
+}
+.sell-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  color: #5A5142;
+}
+.sell-btn:hover { color: #D98F8F; }
+.sell-btn.active { color: #D98F8F; }
+.card.sell-flagged {
+  opacity: 0.55;
 }
 .card-name {
   font-family: 'Shippori Mincho', serif;
