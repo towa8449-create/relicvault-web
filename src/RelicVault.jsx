@@ -1254,7 +1254,7 @@ export default function RelicVault() {
           const entryForClassify = lookupEffectEntry(fullText);
           const conditional = isConditionalEffect(fullText, entryForClassify);
           const duration = isDurationEffect(entryForClassify);
-          const display = pct ? formatPercent(pct) : (s.numeric.value === 0 ? "無印" : `+${s.numeric.value}`);
+          const display = pct ? formatPercent(pct) : (s.numeric.value === 0 ? "" : `+${s.numeric.value}`);
 
           if (giList.length === 0) return; // 計算方式未確定/「計算しない」→ ビルド集計には出さず、カード表示のみに留める
 
@@ -1761,7 +1761,7 @@ export default function RelicVault() {
                             return (
                               <li key={si}>
                                 {s.numeric ? s.numeric.base : s.text}
-                                {s.numeric ? ` ${s.numeric.value === 0 ? "無印" : `+${s.numeric.value}`}${pct ? ` (${formatPercent(pct)})` : ""}` : ""}
+                                {s.numeric ? `${s.numeric.value > 0 ? ` +${s.numeric.value}` : ""}${pct ? ` (${formatPercent(pct)})` : ""}` : ""}
                                 {s.demeritNumeric ? `　→　${s.demerit}（${s.demeritNumeric.display}）` : ""}
                               </li>
                             );
@@ -1980,13 +1980,13 @@ export default function RelicVault() {
                         <li key={i}>
                           <span className="skill-text">
                             {n ? n.base : s.text}
-                            {n && (
+                            {n && n.value > 0 && (
                               <span
                                 className="numeric-badge"
                                 style={{ color: ns.fg, background: ns.bg }}
                                 title={CATEGORY_LABEL[n.category]}
                               >
-                                {n.value === 0 ? "無印" : `+${n.value}`}
+                                +{n.value}
                               </span>
                             )}
                           </span>
