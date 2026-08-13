@@ -372,9 +372,9 @@ function matchSkills(cand, base) {
 }
 
 /* 「完全上位互換」判定：candが baseの全効果を同等以上でカバーし、
-   candの持つデメリットが baseにない/より軽いものを除いて存在しない場合 true */
+   candの持つデメリットが baseにない/より軽いものを除いて存在しない場合 true
+   ※ビルド配置は色（と深度）だけが条件でスキル数（スロット数）の制限は無いため、スロット数は比較条件に含めない */
 function dominatesOrEqual(cand, base) {
-  if (cand.effectiveSlot !== base.effectiveSlot) return false;
   if (cand.effectiveColor !== base.effectiveColor) return false;
   if (cand.depth !== base.depth) return false;
 
@@ -387,11 +387,10 @@ function dominatesOrEqual(cand, base) {
   return true;
 }
 
-/* 「部分的上位互換」判定：スロット数・色・深度が同じで、
+/* 「部分的上位互換」判定：色・深度が同じで、
    candがbaseのスキルを一部（全部ではなく）含み、かつ
    お互いの「非共有スキル」の単体重要度合計を比べてcandの方が高い場合 true */
 function partiallyDominates(cand, base, overrides) {
-  if (cand.effectiveSlot !== base.effectiveSlot) return false;
   if (cand.effectiveColor !== base.effectiveColor) return false;
   if (cand.depth !== base.depth) return false;
 
@@ -408,19 +407,62 @@ function partiallyDominates(cand, base, overrides) {
   return candOtherImportance > baseOtherImportance;
 }
 
+/* 「唯一の供給源」保護：色・深度が同じグループ内で、あるスキル（tier無視の基礎名）を持つ
+   遺物の総数が「重ね掛け可能なら3、不可なら1」以下しかない場合、そのスキルを持つ全ての遺物を
+   上位互換判定の対象（＝売却候補として出す対象）から除外する。
+   スロット数（スキル数）は判定に使わない（ビルド配置は色・深度だけが条件のため）。 */
+function computeProtectedIds(relics) {
+  const groups = new Map();
+  relics.forEach((r) => {
+    if (r.sell) return;
+    const key = `${r.effectiveColor}|${r.depth}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  });
+
+  const protectedIds = new Set();
+  groups.forEach((group) => {
+    const bySkill = new Map(); // 基礎名(tier無視) -> Set(relicId)
+    const stackableOf = new Map(); // 基礎名 -> stackable(true/false/null)
+    group.forEach((r) => {
+      r.skills.forEach((s) => {
+        const base = s.numeric ? s.numeric.base : s.text;
+        if (!bySkill.has(base)) bySkill.set(base, new Set());
+        bySkill.get(base).add(r.id);
+        if (!stackableOf.has(base)) {
+          const entry = lookupEffectEntry(s.importanceKey);
+          stackableOf.set(base, entry ? entry.stackable : null);
+        }
+      });
+    });
+
+    bySkill.forEach((relicIdSet, base) => {
+      const neededMax = stackableOf.get(base) === true ? 3 : 1;
+      if (relicIdSet.size <= neededMax) {
+        relicIdSet.forEach((id) => protectedIds.add(id));
+      }
+    });
+  });
+
+  return protectedIds;
+}
+
 /* 全遺物に対して「これを上回る遺物」の一覧を作る（完全上位互換／上位互換の両方） */
 function buildDominanceMap(relics, overrides) {
   const groups = new Map();
   relics.forEach((r) => {
     if (r.sell) return; // 売却フラグ済みの遺物は上位互換の計算対象から除外する
-    const key = `${r.effectiveSlot}|${r.effectiveColor}|${r.depth}`;
+    const key = `${r.effectiveColor}|${r.depth}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
   });
 
+  const protectedIds = computeProtectedIds(relics);
+
   const map = new Map(); // id -> [{id,type:'full'|'partial',skills:[skillText,...]}]
   groups.forEach((group) => {
     for (const base of group) {
+      if (protectedIds.has(base.id)) continue; // 唯一の供給源として保護（売却候補にはしない）
       const supersededBy = [];
       for (const cand of group) {
         if (cand.id === base.id) continue;
