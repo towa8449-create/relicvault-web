@@ -433,8 +433,14 @@ function computeProtectedIds(relics) {
         const cur = byRelic.get(r.id);
         if (cur === undefined || tierValue > cur) byRelic.set(r.id, tierValue);
         if (!stackableOf.has(base)) {
-          const entry = lookupEffectEntry(s.importanceKey);
-          stackableOf.set(base, entry ? entry.stackable : null);
+          // DAMAGE_TABLE（攻撃力系の重ね掛けデータ、より精密）を優先し、無ければ効果量データを見る
+          const dmg = DAMAGE_TABLE[s.importanceKey];
+          if (dmg) {
+            stackableOf.set(base, dmg.stacks);
+          } else {
+            const entry = lookupEffectEntry(s.importanceKey);
+            stackableOf.set(base, entry ? entry.stackable : null);
+          }
         }
       });
     });
