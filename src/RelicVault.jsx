@@ -407,9 +407,9 @@ function partiallyDominates(cand, base, overrides) {
   return candOtherImportance > baseOtherImportance;
 }
 
-/* 「唯一の供給源」保護：色・深度が同じグループ内で、あるスキル（tier無視の基礎名）を持つ
-   遺物の総数が「重ね掛け可能なら3、不可なら1」以下しかない場合、そのスキルを持つ全ての遺物を
-   上位互換判定の対象（＝売却候補として出す対象）から除外する。
+/* 「唯一の供給源」保護：色・深度が同じグループ内で、あるスキル（tier無視の基礎名）について、
+   tier（数値）が高い方から「重ね掛け可能なら3、不可なら1」枚までを最大構成に必要な遺物として保護する。
+   同じ基礎名の保有者がそれより多くても、tierが低い余剰分だけが売却候補の対象になる。
    スロット数（スキル数）は判定に使わない（ビルド配置は色・深度だけが条件のため）。 */
 function computeProtectedIds(relics) {
   const groups = new Map();
@@ -422,13 +422,16 @@ function computeProtectedIds(relics) {
 
   const protectedIds = new Set();
   groups.forEach((group) => {
-    const bySkill = new Map(); // 基礎名(tier無視) -> Set(relicId)
+    const bySkill = new Map(); // 基礎名(tier無視) -> Map(relicId -> そのrelicが持つ最大tier値)
     const stackableOf = new Map(); // 基礎名 -> stackable(true/false/null)
     group.forEach((r) => {
       r.skills.forEach((s) => {
         const base = s.numeric ? s.numeric.base : s.text;
-        if (!bySkill.has(base)) bySkill.set(base, new Set());
-        bySkill.get(base).add(r.id);
+        const tierValue = s.numeric ? s.numeric.value : 0;
+        if (!bySkill.has(base)) bySkill.set(base, new Map());
+        const byRelic = bySkill.get(base);
+        const cur = byRelic.get(r.id);
+        if (cur === undefined || tierValue > cur) byRelic.set(r.id, tierValue);
         if (!stackableOf.has(base)) {
           const entry = lookupEffectEntry(s.importanceKey);
           stackableOf.set(base, entry ? entry.stackable : null);
@@ -436,11 +439,11 @@ function computeProtectedIds(relics) {
       });
     });
 
-    bySkill.forEach((relicIdSet, base) => {
+    bySkill.forEach((byRelic, base) => {
       const neededMax = stackableOf.get(base) === true ? 3 : 1;
-      if (relicIdSet.size <= neededMax) {
-        relicIdSet.forEach((id) => protectedIds.add(id));
-      }
+      // tier(数値)が高い順に並べ、上位neededMax件だけを「最大構成に必要」として保護する
+      const sorted = [...byRelic.entries()].sort((a, b) => b[1] - a[1]);
+      sorted.slice(0, neededMax).forEach(([id]) => protectedIds.add(id));
     });
   });
 
