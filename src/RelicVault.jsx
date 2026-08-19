@@ -244,7 +244,8 @@ function isDurationEffect(entry) {
 
 function formatPercent(p) {
   if (!p) return null;
-  if (p.text) return `＝${p.text}`;
+  if (p.text && p.text !== "記載しない") return `＝${p.text}`;
+  if (p.text === "記載しない") return null;
   if (p.unit === "%") return `＝${p.value}%`;
   if (p.unit === "") return `＝${p.value}`;
   if (p.unit && p.unit.endsWith("+")) return `＝${p.unit}${p.value}`;
@@ -2254,7 +2255,7 @@ export default function RelicVault() {
                             return (
                               <li key={si} className={inactive ? "skill-inactive" : ""} title={inactive ? "このスキルは発動しません（対象外のキャラ、同じ枠の左側が優先、または重ね掛け不可で既にセット済み）" : undefined}>
                                 {s.numeric ? s.numeric.base : s.text}
-                                {s.numeric ? `${s.numeric.value > 0 ? ` +${s.numeric.value}` : ""}${pct ? ` (${formatPercent(pct)})` : ""}` : ""}
+                                {s.numeric ? `${s.numeric.value > 0 ? ` +${s.numeric.value}` : ""}${pct && formatPercent(pct) ? ` (${formatPercent(pct)})` : ""}` : ""}
                                 {s.demeritNumeric ? `　→　${s.demerit}（${s.demeritNumeric.display}）` : ""}
                                 {inactive && <span className="skill-inactive-mark"> ※不発動</span>}
                               </li>
@@ -2351,12 +2352,12 @@ export default function RelicVault() {
         {statCategory !== "none" && (
           <div className="filter-row">
             <span className="filter-label">項目</span>
-            <select className="select-input" value={statBase} onChange={(e) => setStatBase(e.target.value)}>
-              <option value="all">すべて</option>
-              {statBaseOptions.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+            <SearchableListbox
+              buttonLabel={statBase === "all" ? "項目を選択（すべて）" : statBase}
+              placeholder="項目名で検索…"
+              options={[{ value: "all", label: "すべて" }, ...statBaseOptions.map((b) => ({ value: b, label: b }))]}
+              onSelect={(v) => setStatBase(v)}
+            />
             {statBaseHasPercent && (
               <Chip active={statUsePercent} onClick={() => { setStatUsePercent((v) => !v); setStatMin(0); }} colorRing="#B9974A">
                 ％で判定
@@ -2379,7 +2380,7 @@ export default function RelicVault() {
         {statCategory !== "none" && statCategory !== "demerit" && statBase !== "all" && statBaseHasPercent && PERCENT_MAP[statBase] && (
           <div className="chalice-info">
             実際の効果量：{Object.entries((PERCENT_MAP[statBase].deep || PERCENT_MAP[statBase].normal))
-              .map(([k, v]) => `${k === "0" ? "無印" : "+" + k}→${v}${PERCENT_MAP[statBase].unit}`).join(" / ")}
+              .map(([k, v]) => `${k === "0" ? "" : "+" + k}→${v}${PERCENT_MAP[statBase].unit}`).join(" / ")}
           </div>
         )}
         {statCategory === "demerit" && statBase !== "all" && DEMERIT_MAP[statBase] && (
@@ -2484,7 +2485,7 @@ export default function RelicVault() {
                               </span>
                             )}
                           </span>
-                          {n && pct && pct.text && (
+                          {n && pct && pct.text && pct.text !== "記載しない" && (
                             <div className="effect-amount-text" title={pct.note || undefined}>
                               {pct.text}
                               {pct.note && <span className="effect-amount-note-mark">※</span>}
