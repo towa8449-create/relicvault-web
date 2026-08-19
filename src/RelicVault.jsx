@@ -270,6 +270,42 @@ function skillFullText(s) {
   return s.numeric ? (s.numeric.value === 0 ? s.numeric.base : `${s.numeric.base}+${s.numeric.value}`) : s.text;
 }
 
+// 既知の表記ゆれ（全角/半角の違いなど）をExcel（マスター一覧）側の正式表記に統一する
+const SKILL_TEXT_ALIASES = {
+  "ガード成功時、アーツゲージを蓄積": "ガード成功時、アーツゲージ増加",
+  "ガード成功時、アーツゲージを蓄積+1": "ガード成功時、アーツゲージ増加+1",
+  "魔術/祈祷、効果時間延長": "魔術／祈祷、効果時間延長",
+  "周囲で毒/腐敗状態の発生時、攻撃力上昇": "周囲で毒／腐敗状態の発生時、攻撃力上昇",
+  "陰者": "隠者",
+  "ガード成功時、HPを回復": "ガード成功時、HP回復",
+  "【守護者】アーツ発動時、周囲の味方のHPを徐々に回復": "【守護者】アーツ発動時、周囲の味方HPを徐々に回復",
+  "【レディ】短剣による連撃の最終攻撃命中時、周囲の敵に、直近の出来事を再演": "【レディ】短剣による最終攻撃命中時、周囲の敵に、直近の出来事を再演",
+  "【レディ】短剣による連撃の最終攻撃命中時周囲の敵に、直近の出来事を再演": "【レディ】短剣による最終攻撃命中時、周囲の敵に、直近の出来事を再演",
+};
+
+// 遺物データ側のスキル表記（改行混入や表記ゆれ）を、Excel（マスター一覧）の正式表記に正規化する
+function normalizeSkillText(text) {
+  if (!text) return text;
+  let t = text;
+  // 改行が混ざっている場合：直後が「※」の注記なら切り捨てる。
+  // それ以外は改行位置で句読点が失われていることがあるため、「、」で繋いだ場合とそのまま繋いだ場合の
+  // 両方を試し、マスター一覧に実在する方を優先する
+  if (t.includes("\n")) {
+    const parts = t.split("\n");
+    if (parts[1] && parts[1].startsWith("※")) {
+      t = parts[0];
+    } else {
+      const joinedComma = parts.join("、");
+      const joinedPlain = parts.join("");
+      t = EFFECT_BY_NAME.has(joinedComma) ? joinedComma : joinedPlain;
+    }
+  }
+  if (SKILL_TEXT_ALIASES[t]) return SKILL_TEXT_ALIASES[t];
+  // 「陰者」はキャラ名としてどの位置に出ても「隠者」に補正する
+  if (t.includes("陰者")) t = t.replace(/陰者/g, "隠者");
+  return t;
+}
+
 // rawDataの行配列を [name,s1,d1,s2,d2,s3,d3,id,note,fav,sell] の11要素に揃える（旧形式の短い行にも対応）
 function padRow(row) {
   const r = [...row];
@@ -284,9 +320,9 @@ function buildRelics(raw) {
     const [name, s1, d1, s2, d2, s3, d3, id, note, fav, sell] = row;
     const meta = parseRelic(name);
     const skills = [
-      s1 ? { text: s1, demerit: d1 } : null,
-      s2 ? { text: s2, demerit: d2 } : null,
-      s3 ? { text: s3, demerit: d3 } : null,
+      s1 ? { text: normalizeSkillText(s1), demerit: normalizeSkillText(d1) } : null,
+      s2 ? { text: normalizeSkillText(s2), demerit: normalizeSkillText(d2) } : null,
+      s3 ? { text: normalizeSkillText(s3), demerit: normalizeSkillText(d3) } : null,
     ]
       .filter(Boolean)
       .map((s) => ({
@@ -447,11 +483,34 @@ function partiallyDominates(cand, base, overrides) {
   return candOtherImportance > baseOtherImportance;
 }
 
+/* 完全上位互換で他の1枚に飲み込まれている遺物のIDを集める（保護判定から除外するために使う） */
+function computeDominatedIds(relics) {
+  const groups = new Map();
+  relics.forEach((r) => {
+    if (r.sell) return;
+    const key = `${r.effectiveColor}|${r.depth}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  });
+  const dominated = new Set();
+  groups.forEach((group) => {
+    for (const base of group) {
+      for (const cand of group) {
+        if (cand.id === base.id) continue;
+        if (dominatesOrEqual(cand, base)) { dominated.add(base.id); break; }
+      }
+    }
+  });
+  return dominated;
+}
+
 /* 「唯一の供給源」保護：色・深度が同じグループ内で、あるスキル（tier無視の基礎名）について、
    tier（数値）が高い方から「重ね掛け可能なら3、不可なら1」枚までを最大構成に必要な遺物として保護する。
    同じ基礎名の保有者がそれより多くても、tierが低い余剰分だけが売却候補の対象になる。
-   スロット数（スキル数）は判定に使わない（ビルド配置は色・深度だけが条件のため）。 */
-function computeProtectedIds(relics) {
+   スロット数（スキル数）は判定に使わない（ビルド配置は色・深度だけが条件のため）。
+   ※他の1枚に完全上位互換で飲み込まれている遺物は、その効果を代わりに持つ遺物が既にあるため、
+     保護の対象から除外する（でないと完全上位互換の判定より保護が優先されてしまう）。 */
+function computeProtectedIds(relics, dominatedIds) {
   const groups = new Map();
   relics.forEach((r) => {
     if (r.sell) return;
@@ -465,6 +524,7 @@ function computeProtectedIds(relics) {
     const bySkill = new Map(); // 基礎名(tier無視) -> Map(relicId -> そのrelicが持つ最大tier値)
     const stackableOf = new Map(); // 基礎名 -> stackable(true/false/null)
     group.forEach((r) => {
+      if (dominatedIds.has(r.id)) return; // 完全上位互換で飲み込まれている遺物は保護のカウントに含めない
       r.skills.forEach((s) => {
         const base = s.numeric ? s.numeric.base : s.text;
         const tierValue = s.numeric ? s.numeric.value : 0;
@@ -506,7 +566,8 @@ function buildDominanceMap(relics, overrides) {
     groups.get(key).push(r);
   });
 
-  const protectedIds = computeProtectedIds(relics);
+  const dominatedIds = computeDominatedIds(relics);
+  const protectedIds = computeProtectedIds(relics, dominatedIds);
 
   const map = new Map(); // id -> [{id,type:'full'|'partial',skills:[skillText,...]}]
   groups.forEach((group) => {
@@ -530,6 +591,7 @@ function buildDominanceMap(relics, overrides) {
   });
   return map;
 }
+
 
 /* ---------- 盃（献器）データ：色スロット構成（通常/深層） 出典：神攻略Wiki(kamikouryaku.net) ---------- */
 const CHALICE_ORDER = ["追跡者", "守護者", "鉄の目", "レディ", "無頼漢", "復讐者", "隠者", "執行者", "学者", "葬儀屋"];
@@ -583,7 +645,40 @@ function weaponChangeCategory(skillText) {
   if (/^出撃時の武器の魔術を「.+」にする$/.test(skillText)) return "魔術";
   if (/^出撃時の武器の祈祷を「.+」にする$/.test(skillText)) return "祈祷";
   if (/^出撃時の武器に.+を付加$/.test(skillText)) return "付加";
+  if (/^潜在する力から、.+を見つけやすくなる$/.test(skillText)) return "探索";
   return null;
+}
+
+// あるスキルの「同一スキル名の重ね掛け」可否を調べる（DAMAGE_TABLEを優先、無ければ効果量データを見る）
+function lookupStackable(skillText) {
+  const dmg = DAMAGE_TABLE[skillText];
+  if (dmg) return dmg.stacks;
+  const entry = lookupEffectEntry(skillText);
+  return entry ? entry.stackable : null;
+}
+
+// ビルド内（左スロットから順）で、各遺物の各スキルが実際に発動するかどうかを判定する。
+// ・対象キャラでない【キャラ名】スキルは常に不発動
+// ・戦技/魔術/祈祷/付加/探索の5枠は、同じ枠が既に左のスロットにあれば不発動
+// ・重ね掛け不可のスキルは、完全一致する同名スキルが既に左のスロットにあれば不発動
+function computeBuildActiveFlags(orderedRelics, chaliceChar) {
+  const usedCategory = new Set();
+  const usedNonStackable = new Set();
+  return orderedRelics.map((relic) => relic.skills.map((s) => {
+    const skillText = skillFullText(s);
+    if (chaliceChar && !isSkillUsableByChar(skillText, chaliceChar)) return false;
+    const category = weaponChangeCategory(skillText);
+    if (category) {
+      if (usedCategory.has(category)) return false;
+      usedCategory.add(category);
+      return true;
+    }
+    if (lookupStackable(skillText) === false) {
+      if (usedNonStackable.has(skillText)) return false;
+      usedNonStackable.add(skillText);
+    }
+    return true;
+  }));
 }
 
 
@@ -1562,16 +1657,32 @@ export default function RelicVault() {
   };
 
   // ビルドにセット中の遺物から数値効果（％等）を集計する
+  // ビルド内で各スロット・各スキルが実際に発動するか（左スロット優先・キャラ一致・重ね掛け可否を考慮）
+  const buildActiveFlags = useMemo(() => {
+    if (!build) return [];
+    const orderedRelics = build.slots.map((id) => (id ? relicById.get(id) : null));
+    // null（空き枠）はスキップしつつ、後で元のslotIndexへ戻せるようにインデックス対応を保持
+    const nonNull = [];
+    const indexMap = [];
+    orderedRelics.forEach((r, i) => { if (r) { nonNull.push(r); indexMap.push(i); } });
+    const flagsList = computeBuildActiveFlags(nonNull, chaliceChar);
+    const bySlot = new Array(build.slots.length).fill(null);
+    indexMap.forEach((slotIdx, i) => { bySlot[slotIdx] = flagsList[i]; });
+    return bySlot; // bySlot[slotIndex] = [true/false, ...] または null（空き枠）
+  }, [build, relicById, chaliceChar]);
+
   const buildEffectsSummary = useMemo(() => {
     if (!build) return { permanent: [], duration: [], conditionalCalc: [] };
     const nameGroups = new Map(); // (fullText + "::" + target) ごとにまとめる（複合効果は同じスキルが複数targetに分かれるため）
     const demeritMap = new Map();
 
-    build.slots.forEach((relicId) => {
+    build.slots.forEach((relicId, slotIdx) => {
       if (!relicId) return;
       const relic = relicById.get(relicId);
       if (!relic) return;
-      relic.skills.forEach((s) => {
+      const flags = buildActiveFlags[slotIdx] || relic.skills.map(() => true);
+      relic.skills.forEach((s, si) => {
+        if (!flags[si]) return; // 発動しないスキルは集計から除外
         if (s.numeric) {
           const fullText = s.numeric.value === 0 ? s.numeric.base : `${s.numeric.base}+${s.numeric.value}`;
           const giList = getGroupInfo(s.numeric.base, s.numeric.value); // 配列（複合効果は複数要素）
@@ -2138,18 +2249,10 @@ export default function RelicVault() {
                         <ul className="build-slot-skills">
                           {relic.skills.map((s, si) => {
                             const pct = s.numeric ? getPercent(s.numeric.base, s.numeric.value, relic.depth) : null;
-                            const skillText = skillFullText(s);
-                            const category = weaponChangeCategory(skillText);
-                            let inactive = chaliceChar ? !isSkillUsableByChar(skillText, chaliceChar) : false;
-                            if (!inactive && category) {
-                              inactive = build.slots.slice(0, i).some((id) => {
-                                if (!id) return false;
-                                const r2 = relicById.get(id);
-                                return r2 && r2.skills.some((s2) => weaponChangeCategory(skillFullText(s2)) === category);
-                              });
-                            }
+                            const flags = buildActiveFlags[i];
+                            const inactive = flags ? !flags[si] : false;
                             return (
-                              <li key={si} className={inactive ? "skill-inactive" : ""} title={inactive ? "このスキルは発動しません（対象外のキャラ、または同じ枠の左側が優先されています）" : undefined}>
+                              <li key={si} className={inactive ? "skill-inactive" : ""} title={inactive ? "このスキルは発動しません（対象外のキャラ、同じ枠の左側が優先、または重ね掛け不可で既にセット済み）" : undefined}>
                                 {s.numeric ? s.numeric.base : s.text}
                                 {s.numeric ? `${s.numeric.value > 0 ? ` +${s.numeric.value}` : ""}${pct ? ` (${formatPercent(pct)})` : ""}` : ""}
                                 {s.demeritNumeric ? `　→　${s.demerit}（${s.demeritNumeric.display}）` : ""}
