@@ -72,6 +72,8 @@ function parseNumeric(text) {
 /* ---------- 数値効果の実際の上昇率（％等）変換テーブル 出典：神攻略Wiki(kamikouryaku.net) ---------- */
 const PERCENT_MAP = {"物理攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"魔力攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"炎攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"雷攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"聖攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"2":6},"deep":{"0":4,"1":5,"2":6,"3":10.5,"4":12}},"属性攻撃力上昇":{"unit":"%","deep":{"0":5,"1":8,"2":10}},"脂アイテム使用時、追加で物理攻撃力上昇":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":17,"2":20}},"毒状態の敵に対する攻撃を強化":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":16,"2":20}},"腐敗状態の敵に対する攻撃を強化":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":16,"2":20}},"凍傷状態の敵に対する攻撃を強化":{"unit":"%","normal":{"0":10},"deep":{"0":10,"1":16,"2":20}},"周囲で睡眠状態の発生時、攻撃力上昇":{"unit":"%","deep":{"0":12,"1":22}},"周囲で発狂状態の発生時、攻撃力上昇":{"unit":"%","deep":{"0":12,"1":22}},"ガードカウンター強化":{"unit":"%","normal":{"0":17},"deep":{"0":17,"1":25,"2":29}},"致命の一撃強化":{"unit":"%","normal":{"0":17,"1":24}},"攻撃命中時、スタミナ回復":{"unit":"","normal":{"0":2,"1":3}},"魔術強化":{"unit":"%","normal":{"0":12},"deep":{"0":5,"1":8.5,"2":10}},"祈祷強化":{"unit":"%","normal":{"0":12},"deep":{"0":5,"1":8.5,"2":10}},"物理カット率上昇":{"unit":"%","normal":{"0":8},"deep":{"1":10,"2":13}},"属性カット率上昇":{"unit":"%","deep":{"0":7,"1":12,"2":14}},"雷カット率上昇":{"unit":"%","deep":{"0":10,"1":16,"2":18}},"毒耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"腐敗耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"出血耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"冷気耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"睡眠耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"発狂耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"抗死耐性上昇":{"unit":"","normal":{"0":75,"1":150,"2":225},"deep":{"0":75,"1":110}},"刺突カウンター発生時、HP回復":{"unit":"%","normal":{"0":2.5},"deep":{"0":2.5,"1":3.3}},"苔薬などのアイテム使用でHP回復":{"unit":"","normal":{"0":50},"deep":{"0":50,"1":80}},"致命の一撃で、スタミナ回復速度上昇":{"unit":"%","normal":{"0":15},"deep":{"0":15,"1":25}},"敵を倒した時、アーツゲージ増加":{"unit":"%","normal":{"0":5},"deep":{"0":5,"1":6.5}},"致命の一撃で、アーツゲージ増加":{"unit":"%","normal":{"0":5},"deep":{"0":5,"1":6.5}},"ガード成功時、アーツゲージ増加":{"unit":"%","normal":{"0":1},"deep":{"0":1,"1":1.5}},"調香術強化":{"unit":"%","normal":{"0":14},"deep":{"0":14,"1":30}},"投擲ナイフの攻撃力上昇":{"unit":"%","normal":{"0":14},"deep":{"0":14,"1":30}},"投擲壺の攻撃力上昇":{"unit":"%","normal":{"0":15},"deep":{"0":15,"1":30}},"輝石、重力石アイテムの攻撃力上昇":{"unit":"%","normal":{"0":15},"deep":{"0":15,"1":30}},"アーツゲージ自然蓄積":{"unit":"%","normal":{"1":5,"2":7.5,"3":10}},"スキルクールタイム軽減":{"unit":"%","normal":{"1":5,"2":7.5,"3":10}},"強靭度":{"unit":"%","normal":{"1":5,"2":10,"3":15}},"生命力":{"unit":"HP","normal":{"1":20,"2":40,"3":60}},"精神力":{"unit":"FP","normal":{"1":5,"2":10,"3":15}},"持久力":{"unit":"スタミナ","normal":{"1":2,"2":4,"3":6}}};
 const DEMERIT_MAP = {"生命力と神秘が低下":{"value":-3,"label":"ずつ"},"筋力と知力が低下":{"value":-3,"label":"ずつ"},"技量と信仰が低下":{"value":-3,"label":"ずつ"},"知力と技量が低下":{"value":-3,"label":"ずつ"},"信仰と筋力が低下":{"value":-3,"label":"ずつ"},"取得ルーン減少":{"value":-10,"label":"%"},"HP持続減少":{"value":-2,"label":"/秒"},"すべての状態異常耐性低下":{"value":-80,"label":""},"聖杯瓶使用時、カット率低下":{"value":-45,"label":"%"},"回避直後、カット率低下":{"value":-45,"label":"%"},"回避連続時、カット率低下":{"value":-35,"label":"%"},"被ダメージ時、毒を蓄積":{"value":65,"label":"/ヒット"},"被ダメージ時、腐敗を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、出血を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、冷気を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、睡眠を蓄積":{"value":50,"label":"/ヒット"},"被ダメージ時、発狂を蓄積":{"value":50,"label":"/ヒット"},"被ダメージ時、死を蓄積":{"value":40,"label":"/ヒット"},"聖杯瓶の回復量低下":{"value":-15,"label":"%"},"アーツゲージ蓄積鈍化":{"value":-15,"label":"%"},"HP最大未満時、攻撃力低下":{"value":-10,"label":"%"},"HP最大未満時、毒が蓄積":{"value":2,"label":"/秒"},"HP最大未満時、腐敗が蓄積":{"value":2,"label":"/秒"},"瀕死時、最大HP低下":{"value":-25,"label":"%"}};
+// デメリットはEFFECT_TABLEには含めていない（別データのため）。Excel上の掲載順だけここに保持する
+const DEMERIT_SORT_ORDER = ["生命力と神秘が低下","筋力と知力が低下","技量と信仰が低下","知力と技量が低下","信仰と筋力が低下","取得ルーン減少","HP持続減少","すべての状態異常耐性低下","聖杯瓶使用時、カット率低下","回避直後、カット率低下","回避連続時、カット率低下","被ダメージ時、毒を蓄積","被ダメージ時、腐敗を蓄積","被ダメージ時、出血を蓄積","被ダメージ時、冷気を蓄積","被ダメージ時、睡眠を蓄積","被ダメージ時、発狂を蓄積","被ダメージ時、死を蓄積","聖杯瓶の回復量低下","アーツゲージ蓄積鈍化","HP最大未満時、攻撃力低下","HP最大未満時、毒が蓄積","HP最大未満時、腐敗が蓄積","瀕死時、最大HP低下"];
 
 
 /* ---------- 効果量データ（出典：ユーザー提供の検証済みデータ 遺物効果量.xlsx） ----------
@@ -335,7 +337,7 @@ function buildRelics(raw) {
     const effectiveSlot = meta.slot ?? skills.length;
     // 固有遺物でも、特殊アイテムDBで色が判明していればその色を使う（ビルドの色マッチ判定に使えるようにするため）
     const effectiveColor = meta.color || "固有";
-    const searchBlob = (name + " " + (note || "") + " " + skills.map(s => s.text + " " + s.demerit).join(" ")).toLowerCase();
+    const searchBlob = (name + " " + (note || "") + " " + skills.map(s => s.text + " " + s.demerit).join(" ")).toLowerCase().replace(/＋/g, "+");
     return {
       id, name, note: note || "", fav: !!fav, sell: !!sell,
       skills, ...meta, effectiveSlot, effectiveColor, searchBlob,
@@ -376,7 +378,11 @@ function buildDemeritBases(relics) {
   relics.forEach((r) => r.skills.forEach((s) => {
     if (s.demeritNumeric) set.add(s.demerit);
   }));
-  return [...set].sort((a, b) => a.localeCompare(b, "ja"));
+  return [...set].sort((a, b) => {
+    const ia = DEMERIT_SORT_ORDER.indexOf(a);
+    const ib = DEMERIT_SORT_ORDER.indexOf(b);
+    return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib) || a.localeCompare(b, "ja");
+  });
 }
 
 /* 効果一覧（検索リストから選択できるように、全遺物のスキルをユニーク化） */
@@ -484,45 +490,17 @@ function partiallyDominates(cand, base, overrides) {
   return candOtherImportance > baseOtherImportance;
 }
 
-/* 完全上位互換で他の1枚に飲み込まれている遺物のIDを集める（保護判定から除外するために使う） */
-function computeDominatedIds(relics) {
-  const groups = new Map();
-  relics.forEach((r) => {
-    if (r.sell) return;
-    const key = `${r.effectiveColor}|${r.depth}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(r);
-  });
-  const dominated = new Set();
-  groups.forEach((group) => {
-    for (const base of group) {
-      for (const cand of group) {
-        if (cand.id === base.id) continue;
-        if (dominatesOrEqual(cand, base)) { dominated.add(base.id); break; }
-      }
-    }
-  });
-  return dominated;
-}
-
 /* 「唯一の供給源」保護：色・深度が同じグループ内で、あるスキル（tier無視の基礎名）について、
    ・最大tier（+の数）の保有者数が閾値（重ね掛け可能なら3、不可なら1）を超える場合：保護を解除する
      （トップtierだけで供給が十分足りているため）
    ・それ以外の場合：tierが高い方から順に、閾値の枚数に達するまで保護する
      （同tier内で選びきれない場合は、そのtier内の単体重要度が高い方を優先する）
    スロット数（スキル数）は判定に使わない（ビルド配置は色・深度だけが条件のため）。
-   ※他の1枚に完全上位互換で飲み込まれている遺物は、その効果を代わりに持つ遺物が既にあるため、
-     保護の対象から除外する（でないと完全上位互換の判定より保護が優先されてしまう）。
+   ※重ね掛け可能なスキルは、同tierの遺物が複数あれば同時装備で二重に効果が乗るため、
+     「他の1枚に完全上位互換で飲み込まれているかどうか」は保護の可否に関係しない
+     （その遺物固有のtierがスタック合計に必要なら、たとえ他のスキル構成で見劣りしても保護対象になる）。
    戻り値：{ protectedIds: Set, reasons: Map<relicId, [{base, groupLabel}]> } */
-function computeProtectedIds(relics, dominatedIds, overrides) {
-  const groups = new Map();
-  relics.forEach((r) => {
-    if (r.sell) return;
-    const key = `${r.effectiveColor}|${r.depth}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(r);
-  });
-
+function computeProtectedIds(groups, overrides) {
   const protectedIds = new Set();
   const reasons = new Map();
   groups.forEach((group, groupKey) => {
@@ -530,7 +508,6 @@ function computeProtectedIds(relics, dominatedIds, overrides) {
     const bySkill = new Map(); // 基礎名(tier無視) -> Map(relicId -> {tier, importanceKey})
     const stackableOf = new Map(); // 基礎名 -> stackable(true/false/null)
     group.forEach((r) => {
-      if (dominatedIds.has(r.id)) return; // 完全上位互換で飲み込まれている遺物は保護のカウントに含めない
       r.skills.forEach((s) => {
         const base = s.numeric ? s.numeric.base : s.text;
         const tierValue = s.numeric ? s.numeric.value : 0;
@@ -606,8 +583,8 @@ function buildDominanceMap(relics, overrides) {
     groups.get(key).push(r);
   });
 
-  const dominatedIds = computeDominatedIds(relics);
-  const { protectedIds, reasons: protectionReasons } = computeProtectedIds(relics, dominatedIds, overrides);
+  // グループ分けを1回だけ行い、保護判定と上位互換判定の両方で使い回す（以前は同じ計算を二重に行っていた）
+  const { protectedIds, reasons: protectionReasons } = computeProtectedIds(groups, overrides);
 
   const map = new Map(); // id -> [{id,type:'full'|'partial',skills:[skillText,...]}]
   groups.forEach((group) => {
@@ -814,9 +791,9 @@ function SearchableListbox({ options, placeholder, onSelect, buttonLabel }) {
   }, [open]);
 
   const filtered = useMemo(() => {
-    const t = q.trim().toLowerCase();
+    const t = q.trim().toLowerCase().replace(/＋/g, "+");
     if (!t) return options;
-    return options.filter((o) => o.label.toLowerCase().includes(t));
+    return options.filter((o) => o.label.toLowerCase().replace(/＋/g, "+").includes(t));
   }, [options, q]);
 
   return (
@@ -1413,7 +1390,7 @@ export default function RelicVault() {
 
   // AND検索: 全角/半角スペース区切りのトークンを全て満たす
   const kwTokens = useMemo(
-    () => keyword.trim().toLowerCase().split(/[\s\u3000]+/).filter(Boolean),
+    () => keyword.trim().toLowerCase().replace(/＋/g, "+").split(/[\s\u3000]+/).filter(Boolean),
     [keyword]
   );
 
@@ -2970,7 +2947,7 @@ const GLOBAL_CSS = `
 }
 .build-summary-title.conditional {
   margin-top: 14px;
-  color: #C99A5C;
+  color: #B389D9;
 }
 .build-summary-title.duration {
   margin-top: 14px;
@@ -2993,7 +2970,7 @@ const GLOBAL_CSS = `
 }
 .build-summary-list li.buff { color: #8FC49A; }
 .build-summary-list li.demerit { color: #D98F8F; }
-.build-summary-list li.conditional { color: #C99A5C; }
+.build-summary-list li.conditional { color: #B389D9; }
 .build-summary-list li.duration { color: #7FB4D9; }
 .build-summary-detail {
   font-size: 10.5px;
