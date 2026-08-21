@@ -25,7 +25,7 @@ const COLOR_STYLE = {
 
 /* 特殊アイテム（ストーリー・イベント入手の固有遺物）データベース：日本語名 -> {色, スキル一覧, 英語名}
    ※「獣の夜」等、Night/Dark Nightで日本語表記が同名になるものは色を確定できないため未収録 */
-const SPECIAL_ITEMS_DB = {"忌み鬼の呪物":{"color":"滴る","skills":["武器の持ち替え時、物理攻撃力上昇","投擲ナイフの攻撃力上昇","生命力+1"]},"古びた懐中時計":{"color":"静まる","skills":["攻撃連続時、FP回復","技量+3"]},"薄汚れたフレーム":{"color":"滴る","skills":["攻撃を受けると攻撃力上昇","信仰+3"]},"にび色の砥石":{"color":"燃える","skills":["【追跡者】スキル使用時、通常攻撃で炎を纏った追撃を行う（大剣のみ）","物理攻撃力上昇"]},"銀の雫":{"color":"燃える","skills":["【追跡者】アビリティ発動時、アーツゲージ増加","アーツゲージ自然蓄積+3","神秘+3"]},"追跡者の耳飾り":{"color":"燃える","skills":["【追跡者】アーツ発動時、周囲を延焼","【追跡者】スキルの使用回数+1","攻撃命中時、スタミナ回復"]},"石の杭":{"color":"燃える","skills":["【守護者】スキルの持続時間延長","スキルクールタイム軽減+3"]},"三冊目の本":{"color":"燃える","skills":["【守護者】斧槍タメ攻撃時、つむじ風が発生","斧槍の攻撃でHP回復"]},"魔女のブローチ":{"color":"滴る","skills":["【守護者】アーツ発動時、周囲の味方HPを徐々に回復"]},"割れた封蝋":{"color":"輝く","skills":["【鉄の目】弱点の持続時間を延長させる","致命の一撃で、ルーンを取得"]},"聖律の刃":{"color":"輝く","skills":["【鉄の目】アーツ発動後、刺突カウンター強化","出撃時の武器に聖攻撃力を付加","弓の攻撃力上昇"]},"金色の露":{"color":"輝く","skills":["【レディ】スキルのダメージ上昇","属性攻撃力が付加された時、属性攻撃力上昇"]},"頭冠のメダル":{"color":"静まる","skills":["【レディ】短剣による攻撃連続時、周囲の敵に、直近の出来事を再演","短剣の攻撃力上昇"]},"祝福された鉄貨":{"color":"静まる","skills":["【レディ】アーツ発動中、敵撃破で攻撃力上昇","HP持続回復","生命力+3"]},"ちぎれた組み紐":{"color":"滴る","skills":["【無頼漢】スキル中に攻撃を受けると攻撃力と最大スタミナ上昇","筋力+3"]},"黒爪の首飾り":{"color":"輝く","skills":["トーテム・ステラの周囲で敵を倒した時、HP回復","敵を倒した時、アーツゲージ増加","強靭度+3"]},"小さな化粧道具":{"color":"滴る","skills":["【復讐者】ファミリーと共闘中の間、自身を強化","自身と味方の取得ルーン増加"]},"古びたミニアチュール":{"color":"滴る","skills":["【復讐者】アーツ発動時、霊炎の爆発を発生","【復讐者】アーツ発動時、自身のHPと引き換えに周囲の味方のHPを全回復","敵を倒した時、アーツゲージ増加"]},"夜の痕跡":{"color":"静まる","skills":["【隠者】属性痕を集めた時、「魔術の地」が発動","魔力攻撃力上昇+2"]},"骨のような石":{"color":"静まる","skills":["【隠者】アーツ発動時、最大HP上昇","【隠者】アーツ発動時、自身が出血状態になり、攻撃力上昇","知力+3"]},"祝福された花":{"color":"静まる","skills":["【執行者】スキル中、妖刀が解放状態になるとHP回復","技量+3"]},"黄金の萌芽":{"color":"燃える","skills":["【執行者】アーツ発動中、咆哮でHP回復","HP低下時、周囲の味方を含めHPをゆっくりと回復","ガード成功時、HP回復"]},"清浄の雫":{"color":"燃える","skills":["【学者】アーツでリンクした敵対象に、継続ダメージ","敵を倒した時、アーツゲージ増加","属性カット率上昇"]},"記録「後継者へ」":{"color":"輝く","skills":["【学者】スキルの進捗率の低下を抑制","【学者】スキル使用時、対象に含まれた味方の攻撃力上昇","スキルクールタイム軽減+3"]},"片眼鏡の革袋":{"color":"滴る","skills":["【葬儀屋】祈祷を使用して、自身に補助効果発生時物理攻撃力上昇","魔術/祈祷、効果時間延長","物理攻撃力+2"]},"ガラスの首飾り":{"color":"静まる","skills":["【葬儀屋】アーツ発動時、攻撃力上昇","攻撃連続時、攻撃力上昇","アーツゲージ自然蓄積+3"]},"獣の夜":{"color":"静まる","skills":["攻撃命中時、スタミナ回復+1","出撃時の武器に炎攻撃力を付加"]},"爵の夜":{"color":"滴る","skills":["致命の一撃強化+1","致命の一撃で、アーツゲージ増加","致命の一撃で、スタミナ回復速度上昇"]},"識の夜":{"color":"輝く","skills":["最大FP上昇","出撃時の武器に毒の状態異常を付加","周囲で毒／腐敗状態の発生時、攻撃力上昇"]},"深海の夜":{"color":"燃える","skills":["最大HP上昇","聖杯瓶の回復を、周囲の味方に分配","アイテムの効果が周囲の味方にも発動"]},"魔の夜":{"color":"燃える","skills":["出撃中、ショップでの購入に必要なルーンが大割引","ジェスチャー「あぐら」により、発狂が蓄積","発狂状態になると、FP持続回復"]},"狩人の夜":{"color":"静まる","skills":["最大スタミナ上昇","ガードカウンターに、自身の現在HPの一部を加える","刺突カウンター発生時、HP回復"]},"霞の夜":{"color":"輝く","skills":["周囲で凍傷状態の発生時、自身の姿を隠す","出撃時の武器の戦技を「冷気の霧」にする","※適用可能な武器種のみ","凍傷状態の敵に対する攻撃を強化"]},"王の夜":{"color":"滴る","skills":["武器の持ち替え時、いずれかの属性攻撃力を付加","属性攻撃力が付加された時、属性攻撃力上昇","武器の持ち替え時、物理攻撃力上昇"]},"安寧者の遺志":{"color":"滴る","skills":["近接攻撃力上昇","戦技攻撃力上昇","FP持続回復"]},"瓦礫の夜":{"color":"燃える","skills":["状態異常ゲージがある時、徐々に攻撃力上昇","被ダメージ時、腐敗の状態異常を付加","周囲で腐敗状態の発生時、HP持続回復"]},"獣の暗き夜":{"color":"輝く","skills":["攻撃命中時、スタミナ回復+1","攻撃を受けると攻撃力上昇","炎攻撃力上昇+2"]},"爵の暗き夜":{"color":"燃える","skills":["致命の一撃強化+1","致命の一撃強化","致命の一撃で、ルーンを取得"]},"識の暗き夜":{"color":"静まる","skills":["最大FP上昇","攻撃連続時、FP回復","魔術師塔の仕掛けが解除される度、最大FP上昇"]},"深海の暗き夜":{"color":"滴る","skills":["最大HP上昇","HP持続回復","HP低下時、周囲の味方を含めHPをゆっくりと回復"]},"魔の暗き夜":{"color":"滴る","skills":["攻撃を受けると攻撃力上昇","ジェスチャー「あぐら」により、発狂が蓄積","発狂状態になると、FP持続回復"]},"狩人の暗き夜":{"color":"輝く","skills":["最大スタミナ上昇","属性攻撃力が付加された時、属性攻撃力上昇","敵を倒した時、アーツゲージ増加"]},"霞の暗き夜":{"color":"静まる","skills":["周囲で凍傷状態の発生時、自身の姿を隠す","出撃時の武器に冷気の状態異常を付加","物理カット率上昇"]},"安寧の遺志":{"color":"燃える","skills":["近接攻撃力上昇","戦技攻撃力上昇","カット率低下時、稀に敵から受ける攻撃を無効化"]},"砕けた魔女のブローチ":{"color":"滴る","skills":["【守護者】アーツ発動時、周囲の味方HPを徐々に回復","【守護者】アビリティ発動中、ガード成功時、衝撃波が発生","生命力+3"]}};
+const SPECIAL_ITEMS_DB = {"忌み鬼の呪物":{"color":"滴る","skills":["武器の持ち替え時、物理攻撃力上昇","投擲ナイフの攻撃力上昇","生命力+1"]},"古びた懐中時計":{"color":"静まる","skills":["攻撃連続時、FP回復","技量+3"]},"薄汚れたフレーム":{"color":"滴る","skills":["攻撃を受けると攻撃力上昇","信仰+3"]},"にび色の砥石":{"color":"燃える","skills":["【追跡者】スキル使用時、通常攻撃で炎を纏った追撃を行う（大剣のみ）","物理攻撃力上昇"]},"銀の雫":{"color":"燃える","skills":["【追跡者】アビリティ発動時、アーツゲージ増加","アーツゲージ自然蓄積+3","神秘+3"]},"追跡者の耳飾り":{"color":"燃える","skills":["【追跡者】アーツ発動時、周囲を延焼","【追跡者】スキルの使用回数+1","攻撃命中時、スタミナ回復"]},"石の杭":{"color":"燃える","skills":["【守護者】スキルの持続時間延長","スキルクールタイム軽減+3"]},"三冊目の本":{"color":"燃える","skills":["【守護者】斧槍タメ攻撃時、つむじ風が発生","斧槍の攻撃でHP回復"]},"魔女のブローチ":{"color":"滴る","skills":["【守護者】アーツ発動時、周囲の味方HPを徐々に回復"]},"割れた封蝋":{"color":"輝く","skills":["【鉄の目】弱点の持続時間を延長させる","致命の一撃で、ルーンを取得"]},"聖律の刃":{"color":"輝く","skills":["【鉄の目】アーツ発動後、刺突カウンター強化","出撃時の武器に聖攻撃力を付加","弓の攻撃力上昇"]},"金色の露":{"color":"輝く","skills":["【レディ】スキルのダメージ上昇","属性攻撃力が付加された時、属性攻撃力上昇"]},"頭冠のメダル":{"color":"静まる","skills":["【レディ】短剣による攻撃連続時、周囲の敵に、直近の出来事を再演","短剣の攻撃力上昇"]},"祝福された鉄貨":{"color":"静まる","skills":["【レディ】アーツ発動中、敵撃破で攻撃力上昇","HP持続回復","生命力+3"]},"ちぎれた組み紐":{"color":"滴る","skills":["【無頼漢】スキル中に攻撃を受けると攻撃力と最大スタミナ上昇","筋力+3"]},"黒爪の首飾り":{"color":"輝く","skills":["トーテム・ステラの周囲で敵を倒した時、HP回復","敵を倒した時、アーツゲージ増加","強靭度+3"]},"小さな化粧道具":{"color":"滴る","skills":["【復讐者】ファミリーと共闘中の間、自身を強化","自身と味方の取得ルーン増加"]},"古びたミニアチュール":{"color":"滴る","skills":["【復讐者】アーツ発動時、霊炎の爆発を発生","【復讐者】アーツ発動時、自身のHPと引き換えに周囲の味方のHPを全回復","敵を倒した時、アーツゲージ増加"]},"夜の痕跡":{"color":"静まる","skills":["【隠者】属性痕を集めた時、「魔術の地」が発動","魔力攻撃力上昇+2"]},"骨のような石":{"color":"静まる","skills":["【隠者】アーツ発動時、最大HP上昇","【隠者】アーツ発動時、自身が出血状態になり、攻撃力上昇","知力+3"]},"祝福された花":{"color":"静まる","skills":["【執行者】スキル中、妖刀が解放状態になるとHP回復","技量+3"]},"黄金の萌芽":{"color":"燃える","skills":["【執行者】アーツ発動中、咆哮でHP回復","HP低下時、周囲の味方を含めHPをゆっくりと回復","ガード成功時、HP回復"]},"清浄の雫":{"color":"燃える","skills":["【学者】アーツでリンクした敵対象に、継続ダメージ","敵を倒した時、アーツゲージ増加","属性カット率上昇"]},"記録「後継者へ」":{"color":"輝く","skills":["【学者】スキルの進捗率の低下を抑制","【学者】スキル使用時、対象に含まれた味方の攻撃力上昇","スキルクールタイム軽減+3"]},"片眼鏡の革袋":{"color":"滴る","skills":["【葬儀屋】祈祷を使用して、自身に補助効果発生時物理攻撃力上昇","魔術/祈祷、効果時間延長","物理攻撃力+2"]},"ガラスの首飾り":{"color":"静まる","skills":["【葬儀屋】アーツ発動時、攻撃力上昇","攻撃連続時、攻撃力上昇","アーツゲージ自然蓄積+3"]},"獣の夜":{"color":"静まる","skills":["攻撃命中時、スタミナ回復+1","出撃時の武器に炎攻撃力を付加"]},"爵の夜":{"color":"滴る","skills":["致命の一撃強化+1","致命の一撃で、アーツゲージ増加","致命の一撃で、スタミナ回復速度上昇"]},"識の夜":{"color":"輝く","skills":["最大FP上昇","出撃時の武器に毒の状態異常を付加","周囲で毒／腐敗状態の発生時、攻撃力上昇"]},"深海の夜":{"color":"燃える","skills":["最大HP上昇","聖杯瓶の回復を、周囲の味方に分配","アイテムの効果が周囲の味方にも発動"]},"魔の夜":{"color":"燃える","skills":["出撃中、ショップでの購入に必要なルーンが大割引","ジェスチャー「あぐら」により、発狂が蓄積","発狂状態になると、FP持続回復"]},"狩人の夜":{"color":"静まる","skills":["最大スタミナ上昇","ガードカウンターに、自身の現在HPの一部を加える","刺突カウンター発生時、HP回復"]},"霞の夜":{"color":"輝く","skills":["周囲で凍傷状態の発生時、自身の姿を隠す","出撃時の武器の戦技を「冷気の霧」にする","※適用可能な武器種のみ","凍傷状態の敵に対する攻撃を強化"]},"王の夜":{"color":"滴る","skills":["武器の持ち替え時、いずれかの属性攻撃力を付加","属性攻撃力が付加された時、属性攻撃力上昇","武器の持ち替え時、物理攻撃力上昇"]},"安寧者の遺志":{"color":"滴る","skills":["近接攻撃力上昇","戦技攻撃力上昇","FP持続回復"]},"瓦礫の夜":{"color":"燃える","skills":["状態異常ゲージがある時、徐々に攻撃力上昇","被ダメージ時、腐敗の状態異常を付加","周囲で腐敗状態の発生時、HP持続回復"]},"獣の暗き夜":{"color":"輝く","skills":["攻撃命中時、スタミナ回復+1","攻撃を受けると攻撃力上昇","炎攻撃力上昇+2"]},"爵の暗き夜":{"color":"燃える","skills":["致命の一撃強化+1","致命の一撃強化","致命の一撃で、ルーンを取得"]},"識の暗き夜":{"color":"静まる","skills":["最大FP上昇","攻撃連続時、FP回復","魔術師塔の仕掛けが解除される度、最大FP上昇"]},"深海の暗き夜":{"color":"滴る","skills":["最大HP上昇","HP持続回復","HP低下時、周囲の味方を含めHPをゆっくりと回復"]},"魔の暗き夜":{"color":"滴る","skills":["攻撃を受けると攻撃力上昇","ジェスチャー「あぐら」により、発狂が蓄積","発狂状態になると、FP持続回復"]},"狩人の暗き夜":{"color":"輝く","skills":["最大スタミナ上昇","属性攻撃力が付加された時、属性攻撃力上昇","敵を倒した時、アーツゲージ増加"]},"霞の暗き夜":{"color":"静まる","skills":["周囲で凍傷状態の発生時、自身の姿を隠す","出撃時の武器に冷気の状態異常を付加","物理カット率上昇"]},"砕けた魔女のブローチ":{"color":"滴る","skills":["【守護者】アーツ発動時、周囲の味方HPを徐々に回復","【守護者】アビリティ発動中、ガード成功時、衝撃波が発生","生命力+3"]},"安寧の意志":{"color":"燃える","skills":["近接攻撃力上昇","戦技攻撃力上昇","カット率低下時、稀に敵から受ける攻撃を無効化"]}};
 
 function parseRelic(name) {
   let rest = name;
@@ -41,7 +41,7 @@ function parseRelic(name) {
   let special = false;
   if (rest === "景色") depth = "景色";
   else if (rest === "昏景") depth = "昏景";
-  else special = true;
+  else { special = true; depth = "景色"; } // 固有遺物は深度を持たないため、通常遺物の「景色」と同等として扱う
 
   // 固有遺物として認識できなかった場合、既知の特殊アイテムDBから色を補完する
   if (special && !color) {
@@ -74,6 +74,14 @@ const PERCENT_MAP = {"物理攻撃力上昇":{"unit":"%","normal":{"0":4,"1":5,"
 const DEMERIT_MAP = {"生命力と神秘が低下":{"value":-3,"label":"ずつ"},"筋力と知力が低下":{"value":-3,"label":"ずつ"},"技量と信仰が低下":{"value":-3,"label":"ずつ"},"知力と技量が低下":{"value":-3,"label":"ずつ"},"信仰と筋力が低下":{"value":-3,"label":"ずつ"},"取得ルーン減少":{"value":-10,"label":"%"},"HP持続減少":{"value":-2,"label":"/秒"},"すべての状態異常耐性低下":{"value":-80,"label":""},"聖杯瓶使用時、カット率低下":{"value":-45,"label":"%"},"回避直後、カット率低下":{"value":-45,"label":"%"},"回避連続時、カット率低下":{"value":-35,"label":"%"},"被ダメージ時、毒を蓄積":{"value":65,"label":"/ヒット"},"被ダメージ時、腐敗を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、出血を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、冷気を蓄積":{"value":55,"label":"/ヒット"},"被ダメージ時、睡眠を蓄積":{"value":50,"label":"/ヒット"},"被ダメージ時、発狂を蓄積":{"value":50,"label":"/ヒット"},"被ダメージ時、死を蓄積":{"value":40,"label":"/ヒット"},"聖杯瓶の回復量低下":{"value":-15,"label":"%"},"アーツゲージ蓄積鈍化":{"value":-15,"label":"%"},"HP最大未満時、攻撃力低下":{"value":-10,"label":"%"},"HP最大未満時、毒が蓄積":{"value":2,"label":"/秒"},"HP最大未満時、腐敗が蓄積":{"value":2,"label":"/秒"},"瀕死時、最大HP低下":{"value":-25,"label":"%"}};
 // デメリットはEFFECT_TABLEには含めていない（別データのため）。Excel上の掲載順だけここに保持する
 const DEMERIT_SORT_ORDER = ["生命力と神秘が低下","筋力と知力が低下","技量と信仰が低下","知力と技量が低下","信仰と筋力が低下","取得ルーン減少","HP持続減少","すべての状態異常耐性低下","聖杯瓶使用時、カット率低下","回避直後、カット率低下","回避連続時、カット率低下","被ダメージ時、毒を蓄積","被ダメージ時、腐敗を蓄積","被ダメージ時、出血を蓄積","被ダメージ時、冷気を蓄積","被ダメージ時、睡眠を蓄積","被ダメージ時、発狂を蓄積","被ダメージ時、死を蓄積","聖杯瓶の回復量低下","アーツゲージ蓄積鈍化","HP最大未満時、攻撃力低下","HP最大未満時、毒が蓄積","HP最大未満時、腐敗が蓄積","瀕死時、最大HP低下"];
+// 条件付き効果の「発動条件」を、実プレイ上ほぼ同じ瞬間として扱えるグループにまとめたもの。
+// 同じグループの条件同士だけを合算して表示する（例：「敵を倒した時」と「致命の一撃時」は別グループなので合算しない）
+const CONDITION_GROUP = {"魔術師塔が解除される度":"魔術師塔","小砦の強敵を倒す度":"小砦","大教会の強敵を倒す度":"大教会","大野営地の強敵を倒す度":"大野営地","遺跡の強敵を倒す度":"遺跡","両手持ち時":"両手持ち","二刀持ち時":"二刀持ち","武器持ち替え時":"武器持ち替え時","属性攻撃力が付加された時":"付与","攻撃を受けた時":"被ダメ","状態異常ゲージがある時":"自らが状態異常時","封牢の囚を倒す度":"封牢","夜の侵入者を倒す度":"夜侵入","脂アイテム使用時":"付与","敵を倒した時":"敵倒","致命の一撃時":"致命","ガード成功時":"ガード","HP低下時":"被ダメ","ダメージで吹き飛ばされた時":"被ダメ","刺突カウンター時":"刺突","被ダメージ直後の攻撃時":"被ダメ","対象アイテム使用時":"アイテム","周囲で腐敗発生時":"腐敗発生時","攻撃連続時":"連続攻撃時","発狂時":"自らが発狂時","攻撃命中時":"攻撃時","被ダメージ時":"被ダメ","ガード中":"ガード","あぐら時":"あぐら","カット率低下時":"被ダメ","毒状態の敵に対して攻撃":"敵を毒にしたとき","腐敗状態の敵に対して攻撃":"敵を腐敗にしたとき","凍傷状態の敵に対して攻撃":"敵を凍傷にしたとき","周囲で毒,腐敗発生時":"毒発生時","周囲で凍傷発生時":"凍傷発生時","周囲で睡眠発生時":"睡眠発生時","周囲で発狂発狂時":"発狂発生時","アビリティ発動時":"追跡者のアビリティ発動時"};
+function conditionGroupOf(condition) {
+  if (!condition) return "";
+  return CONDITION_GROUP[condition] || condition; // 未登録の条件は条件文そのものをグループとして扱う（誤って合算しない安全側）
+}
+
 
 
 /* ---------- 効果量データ（出典：ユーザー提供の検証済みデータ 遺物効果量.xlsx） ----------
@@ -242,6 +250,12 @@ const DURATION_RE = /[（(]\s*約?\s*\d+(?:\.\d+)?\s*秒/;
 function isDurationEffect(entry) {
   const amount = entry ? entry.amount || "" : "";
   return DURATION_RE.test(amount);
+}
+// 持続発動効果の秒数を取り出す（例："〜(5秒)" -> "5"）
+function extractDurationSeconds(entry) {
+  const amount = entry ? entry.amount || "" : "";
+  const m = amount.match(/[（(]\s*約?\s*(\d+(?:\.\d+)?)\s*秒/);
+  return m ? m[1] : null;
 }
 
 function formatPercent(p) {
@@ -1476,10 +1490,9 @@ export default function RelicVault() {
   const colorMatchesSlot = (slotColor, relicColor) =>
     slotColor === "無" || slotColor === relicColor;
 
-  // 色に加えて深度（通常/深層）も一致するか。固有遺物は深度を持たないためどちらの枠にも置ける
+  // 色に加えて深度（通常/深層）も一致するか。固有遺物は「景色」（通常）扱いなので通常の判定式のままでよい
   const slotAcceptsRelic = (b, slotIndex, relic) =>
-    colorMatchesSlot(b.colors[slotIndex], relic.effectiveColor) &&
-    (relic.special || relic.depth === b.depths[slotIndex]);
+    colorMatchesSlot(b.colors[slotIndex], relic.effectiveColor) && relic.depth === b.depths[slotIndex];
 
   /* rawData（デフォルト or インポート済み）から派生データを再構築 */
   const RELICS = useMemo(() => buildRelics(rawData), [rawData]);
@@ -1689,7 +1702,7 @@ export default function RelicVault() {
   }, [build, relicById, chaliceChar]);
 
   const buildEffectsSummary = useMemo(() => {
-    if (!build) return { permanent: [], duration: [], conditionalCalc: [] };
+    if (!build) return { permanent: [], conditionalCalc: [] };
     const nameGroups = new Map(); // (fullText + "::" + target) ごとにまとめる（複合効果は同じスキルが複数targetに分かれるため）
     const demeritMap = new Map();
 
@@ -1721,6 +1734,7 @@ export default function RelicVault() {
               stackable: gi.stackable,
               conditional,
               duration,
+              durationSeconds: duration ? extractDurationSeconds(entryForClassify) : null,
               condition: entryForClassify ? entryForClassify.condition : null,
               values: [],
               entries: [],
@@ -1757,15 +1771,25 @@ export default function RelicVault() {
       return { ...ng, contrib };
     });
 
-    // ステップ2：同じtarget（強化枠）を共有する「別名」スキル同士は常に重ね掛けする
+    // ステップ2：同じtarget（強化枠）かつ同じ「発動条件グループ」を共有するスキル同士だけ重ね掛けする
+    // （例：「敵を倒した時」と「致命の一撃時」はtargetが同じでも別グループなので合算しない）
     function aggregate(list) {
       const targetGroups = new Map();
       list.forEach((ng) => {
-        const cur = targetGroups.get(ng.target) || { target: ng.target, type: ng.type, unit: ng.unit, names: [], entries: [], conditions: new Set() };
+        const groupKey = `${ng.target}::${ng.condition ? conditionGroupOf(ng.condition) : ""}`;
+        const cur = targetGroups.get(groupKey) || {
+          target: ng.target, type: ng.type, unit: ng.unit, names: [], entries: [], conditions: new Set(),
+          isDuration: false, durationSeconds: null, skillName: null,
+        };
         cur.names.push(ng);
         cur.entries.push(...ng.entries);
         if (ng.condition) cur.conditions.add(ng.condition);
-        targetGroups.set(ng.target, cur);
+        if (ng.duration) {
+          cur.isDuration = true;
+          if (!cur.durationSeconds) cur.durationSeconds = ng.durationSeconds;
+          if (!cur.skillName) cur.skillName = ng.name;
+        }
+        targetGroups.set(groupKey, cur);
       });
       const out = [];
       targetGroups.forEach((g) => {
@@ -1779,18 +1803,20 @@ export default function RelicVault() {
           const total = Math.round(g.names.reduce((a, ng) => a + ng.contrib, 0) * 100) / 100;
           totalLabel = `${total >= 0 ? "+" : ""}${total}${g.unit}`;
         }
-        out.push({ target: g.target, totalLabel, entries: g.entries, condition: [...g.conditions].join(" / ") || null, demerit: false });
+        out.push({
+          target: g.target, totalLabel, entries: g.entries,
+          condition: [...g.conditions].join(" / ") || null, demerit: false,
+          isDuration: g.isDuration, durationSeconds: g.durationSeconds, skillName: g.skillName,
+        });
       });
       return out;
     }
 
-    // 3分割：常時／持続発動（〜秒間バフ）／条件付き（同条件内で重ね掛け計算ができるもの）
+    // 2分割：常時／条件付き（持続発動＝一定時間バフも条件付きの一種としてまとめて扱う）
     const permanentContribs = nameContribs.filter((ng) => !ng.conditional);
-    const durationContribs = nameContribs.filter((ng) => ng.conditional && ng.duration);
-    const conditionalCalcContribs = nameContribs.filter((ng) => ng.conditional && !ng.duration);
+    const conditionalCalcContribs = nameContribs.filter((ng) => ng.conditional);
 
     const permanent = aggregate(permanentContribs);
-    const duration = aggregate(durationContribs);
     const conditionalCalc = aggregate(conditionalCalcContribs);
 
     demeritMap.forEach((d) => {
@@ -1801,7 +1827,7 @@ export default function RelicVault() {
         demerit: true,
       });
     });
-    return { permanent, duration, conditionalCalc };
+    return { permanent, conditionalCalc };
   }, [build, relicById]);
 
   const canAssign = (relic) =>
@@ -2288,7 +2314,7 @@ export default function RelicVault() {
               })}
             </div>
 
-            {(buildEffectsSummary.permanent.length > 0 || buildEffectsSummary.duration.length > 0 || buildEffectsSummary.conditionalCalc.length > 0) && (
+            {(buildEffectsSummary.permanent.length > 0 || buildEffectsSummary.conditionalCalc.length > 0) && (
               <div className="build-summary">
                 <div className="build-summary-title">常時効果の合計</div>
                 {buildEffectsSummary.permanent.length > 0 ? (
@@ -2308,31 +2334,15 @@ export default function RelicVault() {
                   <div className="build-summary-empty">常時発動する数値効果はありません</div>
                 )}
 
-                {buildEffectsSummary.duration.length > 0 && (
-                  <>
-                    <div className="build-summary-title duration">持続発動効果（発動後、一定時間だけこの分が上乗せされます）</div>
-                    <ul className="build-summary-list">
-                      {buildEffectsSummary.duration.map((e, i) => (
-                        <li key={i} className="duration">
-                          {e.condition ? `${e.condition}、${e.target}${e.totalLabel}` : `${e.target}${e.totalLabel}`}
-                          {e.entries.length > 1 && (
-                            <span className="build-summary-detail">
-                              （{e.entries.map((it) => `${it.relicName}: ${it.display}`).join(" + ")}）
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
                 {buildEffectsSummary.conditionalCalc.length > 0 && (
                   <>
                     <div className="build-summary-title conditional">条件付き効果（発動中はこの分が上乗せされます）</div>
                     <ul className="build-summary-list">
                       {buildEffectsSummary.conditionalCalc.map((e, i) => (
                         <li key={i} className="conditional">
-                          {e.condition ? `${e.condition}、${e.target}${e.totalLabel}` : `${e.target}${e.totalLabel}`}
+                          {e.isDuration
+                            ? `${e.skillName}（${e.durationSeconds || "?"}秒）${e.totalLabel}`
+                            : (e.condition ? `${e.condition}、${e.target}${e.totalLabel}` : `${e.target}${e.totalLabel}`)}
                           {e.entries.length > 1 && (
                             <span className="build-summary-detail">
                               （{e.entries.map((it) => `${it.relicName}: ${it.display}`).join(" + ")}）
