@@ -138,10 +138,17 @@ function getEffectiveImportance(fullText, overrides) {
 // amount文字列（例："物理攻撃力+4%"、"最大HP+20"）から先頭の数値とその単位を抜き出す
 function parseAmountNumber(amountStr) {
   if (!amountStr) return null;
-  const pctMatch = amountStr.match(/([+\-]?\d+(?:\.\d+)?)\s*%/);
+  const pctMatch = amountStr.match(/([+\-]?\d+(?:\.\d+)?)\s*[%％]/);
   if (pctMatch) return { value: parseFloat(pctMatch[1]), unit: "%" };
   const numMatch = amountStr.match(/\+(\d+(?:\.\d+)?)/);
   if (numMatch) return { value: parseFloat(numMatch[1]), unit: "" };
+  // フォールバック：「HPを15回復」のように、+記号の無い固定値表記も拾う
+  const woMatch = amountStr.match(/を(\d+(?:\.\d+)?)/);
+  if (woMatch) return { value: parseFloat(woMatch[1]), unit: "" };
+  const noMatch = amountStr.match(/(\d+(?:\.\d+)?)の/);
+  if (noMatch) return { value: parseFloat(noMatch[1]), unit: "" };
+  const runeMatch = amountStr.match(/(\d+(?:\.\d+)?)ルーン/);
+  if (runeMatch) return { value: parseFloat(runeMatch[1]), unit: "" };
   return null;
 }
 
@@ -1701,6 +1708,55 @@ export default function RelicVault() {
     return bySlot; // bySlot[slotIndex] = [true/false, ...] または null（空き枠）
   }, [build, relicById, chaliceChar]);
 
+// 汎用ターゲット表記のゆれ（旧「攻撃力」「カット率」/新「すべての攻撃力」「全属性カット率」）を統一する
+function normalizeAttackCutTarget(target) {
+  if (target === "攻撃力") return "すべての攻撃力";
+  if (target === "カット率") return "全属性カット率";
+  return target;
+}
+
+// 「すべての攻撃力／カット率」→「属性攻撃力／属性カット率」→「具体的な属性」という入れ子構造を畳み込む。
+// 具体的なターゲット行がある場合は、そこに上位の汎用倍率を掛け合わせて表示する。
+// 具体的な行が無い場合（汎用バフだけが単独である場合）はそのまま残す。
+const ATTACK_ALL_GENERIC = "すべての攻撃力";
+const ATTACK_ATTR_GENERIC = "属性攻撃力";
+const ATTACK_SPECIFIC_ATTR = new Set(["魔力攻撃力", "炎攻撃力", "雷攻撃力", "聖攻撃力"]);
+const ATTACK_SPECIFIC_PHYS = "物理攻撃力";
+const CUT_ALL_GENERIC = "全属性カット率";
+const CUT_ATTR_GENERIC = "属性カット率";
+const CUT_SPECIFIC_ATTR = new Set(["魔力カット率", "炎カット率", "雷カット率", "聖カット率"]);
+const CUT_SPECIFIC_PHYS = "物理カット率";
+
+function foldGenericLayers(rows) {
+  const byTarget = new Map(rows.map((r) => [r.target, r]));
+  const usedAsGeneric = new Set();
+
+  function fold(allGenericName, attrGenericName, specificAttrSet, specificPhysName) {
+    const allGenericRow = byTarget.get(allGenericName);
+    const attrGenericRow = byTarget.get(attrGenericName);
+    const specificTargets = [...byTarget.keys()].filter((t) => t === specificPhysName || specificAttrSet.has(t));
+    specificTargets.forEach((t) => {
+      const row = byTarget.get(t);
+      if (row.type !== "mult") return; // 乗算以外（加算等）は畳み込み対象外
+      let mult = row.multiplier;
+      if (allGenericRow && allGenericRow.type === "mult") { mult *= allGenericRow.multiplier; usedAsGeneric.add(allGenericName); }
+      if (specificAttrSet.has(t) && attrGenericRow && attrGenericRow.type === "mult") { mult *= attrGenericRow.multiplier; usedAsGeneric.add(attrGenericName); }
+      const pct = Math.round((mult - 1) * 10000) / 100;
+      row.multiplier = mult;
+      row.totalLabel = `${pct >= 0 ? "+" : ""}${pct}%`;
+      row.foldedFrom = [
+        allGenericRow && usedAsGeneric.has(allGenericName) ? allGenericName : null,
+        specificAttrSet.has(t) && attrGenericRow && usedAsGeneric.has(attrGenericName) ? attrGenericName : null,
+      ].filter(Boolean);
+    });
+  }
+  fold(ATTACK_ALL_GENERIC, ATTACK_ATTR_GENERIC, ATTACK_SPECIFIC_ATTR, ATTACK_SPECIFIC_PHYS);
+  fold(CUT_ALL_GENERIC, CUT_ATTR_GENERIC, CUT_SPECIFIC_ATTR, CUT_SPECIFIC_PHYS);
+
+  // 具体的な行に畳み込めた汎用行は、単独表示から除外する（畳み込めなかった汎用行はそのまま残す）
+  return rows.filter((r) => !usedAsGeneric.has(r.target));
+}
+
   const buildEffectsSummary = useMemo(() => {
     if (!build) return { permanent: [], conditionalCalc: [] };
     const nameGroups = new Map(); // (fullText + "::" + target) ごとにまとめる（複合効果は同じスキルが複数targetに分かれるため）
@@ -1725,10 +1781,11 @@ export default function RelicVault() {
           if (giList.length === 0) return; // 計算方式未確定/「計算しない」→ ビルド集計には出さず、カード表示のみに留める
 
           giList.forEach((gi) => {
-            const key = `${fullText}::${gi.target}`;
+            const target = normalizeAttackCutTarget(gi.target);
+            const key = `${fullText}::${target}`;
             const cur = nameGroups.get(key) || {
               name: fullText,
-              target: gi.target,
+              target,
               type: gi.type,
               unit: gi.unit || (gi.type === "mult" ? "%" : ""),
               stackable: gi.stackable,
@@ -1794,18 +1851,22 @@ export default function RelicVault() {
       const out = [];
       targetGroups.forEach((g) => {
         let totalLabel;
+        let multiplier = 1;
         if (g.type === "mult") {
           let totalMult = 1;
           g.names.forEach((ng) => { totalMult *= 1 + ng.contrib / 100; });
           const totalPct = Math.round((totalMult - 1) * 10000) / 100;
           totalLabel = `${totalPct >= 0 ? "+" : ""}${totalPct}%`;
+          multiplier = totalMult;
         } else {
           const total = Math.round(g.names.reduce((a, ng) => a + ng.contrib, 0) * 100) / 100;
           totalLabel = `${total >= 0 ? "+" : ""}${total}${g.unit}`;
         }
         out.push({
-          target: g.target, totalLabel, entries: g.entries,
-          condition: [...g.conditions].join(" / ") || null, demerit: false,
+          target: g.target, totalLabel, entries: g.entries, type: g.type, multiplier,
+          condition: [...g.conditions].join(" / ") || null,
+          conditionGroup: g.names[0] && g.names[0].condition ? conditionGroupOf(g.names[0].condition) : "",
+          demerit: false,
           isDuration: g.isDuration, durationSeconds: g.durationSeconds, skillName: g.skillName,
         });
       });
@@ -1816,7 +1877,9 @@ export default function RelicVault() {
     const permanentContribs = nameContribs.filter((ng) => !ng.conditional);
     const conditionalCalcContribs = nameContribs.filter((ng) => ng.conditional);
 
-    const permanent = aggregate(permanentContribs);
+    // 「すべての攻撃力／カット率」→「属性攻撃力／属性カット率」→「具体的な属性」の畳み込みは、
+    // targetごとに常に1行しかない「常時」側だけに適用する（条件付き側は条件グループごとに行が分かれるため対象外）
+    const permanent = foldGenericLayers(aggregate(permanentContribs));
     const conditionalCalc = aggregate(conditionalCalcContribs);
 
     demeritMap.forEach((d) => {
@@ -2327,6 +2390,9 @@ export default function RelicVault() {
                             （{e.entries.map((it) => `${it.relicName}: ${it.display}`).join(" + ")}）
                           </span>
                         )}
+                        {e.foldedFrom && e.foldedFrom.length > 0 && (
+                          <span className="build-summary-detail"> ※{e.foldedFrom.join("・")}の汎用バフを乗算込み</span>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -2341,7 +2407,7 @@ export default function RelicVault() {
                       {buildEffectsSummary.conditionalCalc.map((e, i) => (
                         <li key={i} className="conditional">
                           {e.isDuration
-                            ? `${e.skillName}（${e.durationSeconds || "?"}秒）${e.totalLabel}`
+                            ? `${e.skillName}〈${e.target}〉（${e.durationSeconds || "?"}秒）${e.totalLabel}`
                             : (e.condition ? `${e.condition}、${e.target}${e.totalLabel}` : `${e.target}${e.totalLabel}`)}
                           {e.entries.length > 1 && (
                             <span className="build-summary-detail">
@@ -2980,7 +3046,7 @@ const GLOBAL_CSS = `
 }
 .build-summary-list li.buff { color: #8FC49A; }
 .build-summary-list li.demerit { color: #D98F8F; }
-.build-summary-list li.conditional { color: #B389D9; }
+.build-summary-list li.conditional { color: #D6B87A; }
 .build-summary-list li.duration { color: #7FB4D9; }
 .build-summary-detail {
   font-size: 10.5px;
