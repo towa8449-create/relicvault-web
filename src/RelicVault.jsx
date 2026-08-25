@@ -2293,46 +2293,6 @@ function foldGenericLayers(rows) {
         )}
       </div>
 
-      {reviewData && (
-        <div className="review-panel">
-          <div className="review-panel-header">
-            <div className="review-panel-title">審査中：{reviewData.relic.name}</div>
-            <button className="build-clear-btn" onClick={() => setReviewRelicId(null)}>審査を終了</button>
-          </div>
-          {reviewData.otherSkills.length === 0 ? (
-            <div className="chalice-note">この遺物には、審査対象になる他のスキルがありません（選んだスキルのみの遺物です）。</div>
-          ) : (
-            <>
-              <div className="review-panel-progress">
-                他のスキル {reviewData.idx + 1} / {reviewData.otherSkills.length} 件目を確認中
-              </div>
-              <div className="review-panel-skill">
-                対象スキル：{reviewData.currentSkill.numeric ? reviewData.currentSkill.numeric.base : reviewData.currentSkill.text}
-                {reviewData.currentSkill.numeric && reviewData.currentSkill.numeric.value > 0 ? ` +${reviewData.currentSkill.numeric.value}` : ""}
-              </div>
-              {reviewData.alternatives.length > 0 ? (
-                <ul className="review-panel-list">
-                  {reviewData.alternatives.map((alt) => (
-                    <li key={alt.id}>
-                      {alt.name}：{alt.skills.map((s) => s.numeric ? `${s.numeric.base}${s.numeric.value > 0 ? `+${s.numeric.value}` : ""}` : s.text).join(" / ")}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="chalice-note">同じ色・深度で、このスキルをより良く（同等以上のtierで）持つ他の遺物は見つかりませんでした。この効果に関しては、この遺物が唯一無二の可能性があります。</div>
-              )}
-              {reviewData.idx < reviewData.otherSkills.length - 1 && (
-                <button className="build-start-btn" onClick={() => setReviewSkillIndex((v) => v + 1)}>
-                  次のスキルへ
-                </button>
-              )}
-              {reviewData.idx >= reviewData.otherSkills.length - 1 && (
-                <div className="chalice-note">これで全てのスキルを確認しました。ここまでの内容をもとに、最終判断（お気に入り・売却フラグ・メモ）はご自身で行ってください。</div>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
       <div className="chalice-bar">
         <div className="panel-title">盃（献器）から色を絞り込む・ビルドを組む</div>
@@ -2602,8 +2562,13 @@ function foldGenericLayers(rows) {
         )}
         {visible.map((r) => {
           const cs = COLOR_STYLE[r.effectiveColor] || COLOR_STYLE["固有"];
+          const isReviewing = reviewRelicId === r.id;
           return (
-            <article key={r.id} className={`card${r.sell ? " sell-flagged" : ""}`} style={{ boxShadow: `inset 3px 0 0 ${cs.ring}` }}>
+            <article
+              key={r.id}
+              className={`card${r.sell ? " sell-flagged" : ""}${isReviewing ? " reviewing" : ""}`}
+              style={{ boxShadow: `inset 3px 0 0 ${cs.ring}` }}
+            >
               <div className="card-top">
                 <div className="dots" style={{ color: cs.fg }}>
                   {"●".repeat(r.effectiveSlot > 3 ? 3 : r.effectiveSlot || 1)}
@@ -2753,10 +2718,49 @@ function foldGenericLayers(rows) {
                   <div className="card-edit-row">
                     <button className="card-edit-btn" onClick={() => startEdit(r.id)}>編集</button>
                     <button className="card-edit-btn danger" onClick={() => deleteRelic(r.id)}>削除</button>
-                    <button className="card-edit-btn review" onClick={() => { setReviewRelicId(r.id); setReviewSkillIndex(0); }}>
-                      この遺物を審査
+                    <button
+                      className="card-edit-btn review"
+                      onClick={() => { setReviewRelicId(isReviewing ? null : r.id); setReviewSkillIndex(0); }}
+                    >
+                      {isReviewing ? "審査を終了" : "この遺物を審査"}
                     </button>
                   </div>
+
+                  {isReviewing && reviewData && (
+                    <div className="review-panel-inline">
+                      {reviewData.otherSkills.length === 0 ? (
+                        <div className="chalice-note">この遺物には審査対象のスキルがありません。</div>
+                      ) : (
+                        <>
+                          <div className="review-panel-progress">
+                            スキル {reviewData.idx + 1} / {reviewData.otherSkills.length} 件目を確認中
+                          </div>
+                          <div className="review-panel-skill">
+                            対象：{reviewData.currentSkill.numeric ? reviewData.currentSkill.numeric.base : reviewData.currentSkill.text}
+                            {reviewData.currentSkill.numeric && reviewData.currentSkill.numeric.value > 0 ? ` +${reviewData.currentSkill.numeric.value}` : ""}
+                          </div>
+                          {reviewData.alternatives.length > 0 ? (
+                            <ul className="review-panel-list">
+                              {reviewData.alternatives.map((alt) => (
+                                <li key={alt.id}>
+                                  {alt.name}：{alt.skills.map((s) => s.numeric ? `${s.numeric.base}${s.numeric.value > 0 ? `+${s.numeric.value}` : ""}` : s.text).join(" / ")}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="chalice-note">同じ色・深度で、同等以上のtierを持つ他の遺物は見つかりませんでした。この効果に関しては唯一無二の可能性があります。</div>
+                          )}
+                          {reviewData.idx < reviewData.otherSkills.length - 1 ? (
+                            <button className="build-start-btn" onClick={() => setReviewSkillIndex((v) => v + 1)}>
+                              次のスキルへ
+                            </button>
+                          ) : (
+                            <div className="chalice-note">全スキルを確認しました。最終判断（お気に入り・売却フラグ・メモ）はご自身で行ってください。</div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </article>
@@ -3690,25 +3694,17 @@ const GLOBAL_CSS = `
   color: #7FA9C9;
   margin-top: 8px;
 }
-.review-panel {
-  max-width: 1100px;
-  margin: 0 auto 16px;
-  padding: 14px 16px;
-  border-radius: 10px;
+/* 審査中のカードは、内容が読みやすいようグリッドの横幅いっぱいに広げる（通常のブロック要素として展開するだけで、
+   固定位置や画面切り替えを使わないため、スマホのビューポート挙動に左右されにくい） */
+.card.reviewing {
+  grid-column: 1 / -1;
+}
+.review-panel-inline {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
   background: rgba(185,151,74,0.08);
   border: 1px solid rgba(185,151,74,0.4);
-}
-.review-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.review-panel-title {
-  font-family: 'Shippori Mincho', serif;
-  font-weight: 700;
-  font-size: 15px;
-  color: #B9974A;
 }
 .review-panel-progress {
   font-family: 'Zen Kaku Gothic New', sans-serif;
