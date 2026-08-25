@@ -511,6 +511,7 @@ function partiallyDominates(cand, base, overrides) {
   return candOtherImportance > baseOtherImportance;
 }
 
+
 /* 「唯一の供給源」保護：色・深度が同じグループ内で、あるスキル（tier無視の基礎名）について、
    ・最大tier（+の数）の保有者数が閾値（重ね掛け可能なら3、不可なら1）を超える場合：保護を解除する
      （トップtierだけで供給が十分足りているため）
@@ -631,6 +632,7 @@ function buildDominanceMap(relics, overrides) {
 }
 
 
+
 /* ---------- 盃（献器）データ：色スロット構成（通常/深層） 出典：神攻略Wiki(kamikouryaku.net) ---------- */
 const CHALICE_ORDER = ["追跡者", "守護者", "鉄の目", "レディ", "無頼漢", "復讐者", "隠者", "執行者", "学者", "葬儀屋"];
 
@@ -685,6 +687,24 @@ function weaponChangeCategory(skillText) {
   if (/^出撃時の武器に.+を付加$/.test(skillText)) return "付加";
   if (/^潜在する力から、.+を見つけやすくなる$/.test(skillText)) return "探索";
   return null;
+}
+
+// 「キャラ専用効果とキャラ非対応の出撃時変更が同居」判定：
+// 【キャラX】専用スキルと、Xが使えない戦技/魔術/祈祷/付加変更スキルが同じ遺物にある場合、
+// どのキャラで使っても必ず片方が発動しない（ゲームルール上、恒久的に確定した不噛み合い）。
+function hasCharMismatchCombo(relic) {
+  const texts = relic.skills.map((s) => skillFullText(s));
+  for (const t of texts) {
+    const m = t.match(/^【(.+?)】/);
+    if (!m) continue;
+    const owner = m[1];
+    for (const t2 of texts) {
+      if (t2 === t) continue;
+      if (!weaponChangeCategory(t2)) continue;
+      if (!isSkillUsableByChar(t2, owner)) return true;
+    }
+  }
+  return false;
 }
 
 // あるスキルの「同一スキル名の重ね掛け」可否を調べる（DAMAGE_TABLEを優先、無ければ効果量データを見る）
@@ -982,9 +1002,12 @@ export default function RelicVault() {
   const [favOnly, setFavOnly] = useState(false);
   const [sellOnly, setSellOnly] = useState(false);
   const [showObsoleteOnly, setShowObsoleteOnly] = useState(false);
+  const [showCharMismatchOnly, setShowCharMismatchOnly] = useState(false);
   const [importanceMin, setImportanceMin] = useState(""); // ""=指定なし
   const [importanceMax, setImportanceMax] = useState("");
   const [selectedEffects, setSelectedEffects] = useState([]); // [{value,label}]
+  const [reviewRelicId, setReviewRelicId] = useState(null); // 審査中の候補遺物（ステップ3）
+  const [reviewSkillIndex, setReviewSkillIndex] = useState(0); // 審査中、今見ているスキルの番号
   const [importanceOverrides, setImportanceOverrides] = useState({}); // { [skillFullText]: number(1-10) } ユーザー調整分のみ
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loaded, setLoaded] = useState(false);
@@ -1406,7 +1429,7 @@ export default function RelicVault() {
     setVisibleCount(PAGE_SIZE);
   };
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, showObsoleteOnly, selectedEffects]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, showObsoleteOnly, showCharMismatchOnly, selectedEffects]);
   useEffect(() => { setStatBase("all"); setStatUsePercent(false); }, [statCategory]);
 
   // AND検索: 全角/半角スペース区切りのトークンを全て満たす
@@ -1526,6 +1549,37 @@ export default function RelicVault() {
     RELICS.forEach((r) => map.set(r.id, r));
     return map;
   }, [RELICS]);
+
+  // 審査パネル（ステップ3）：候補遺物の「他のスキル」を1つずつ表示し、そのスキルごとの代替候補を出す
+  const reviewData = useMemo(() => {
+    if (!reviewRelicId) return null;
+    const relic = relicById.get(reviewRelicId);
+    if (!relic) return null;
+    // カードから直接「審査」を始めるので、アンカー除外はせず全スキルを1つずつ確認する
+    const otherSkills = relic.skills;
+    if (otherSkills.length === 0) return { relic, otherSkills: [], currentSkill: null, alternatives: [] };
+    const idx = Math.min(reviewSkillIndex, otherSkills.length - 1);
+    const currentSkill = otherSkills[idx];
+    const currentBase = currentSkill.numeric ? currentSkill.numeric.base : currentSkill.text;
+    const currentTier = currentSkill.numeric ? currentSkill.numeric.value : 0;
+    // 同じ色・深度で、このスキルを候補以上のtierで持つ、他の遺物を探す
+    const alternatives = RELICS.filter((r) => {
+      if (r.id === relic.id || r.sell) return false;
+      if (r.effectiveColor !== relic.effectiveColor || r.depth !== relic.depth) return false;
+      return r.skills.some((s) => {
+        const base = s.numeric ? s.numeric.base : s.text;
+        const tier = s.numeric ? s.numeric.value : 0;
+        return base === currentBase && tier >= currentTier;
+      });
+    }).sort((a, b) => {
+      const ta = a.skills.find((s) => (s.numeric ? s.numeric.base : s.text) === currentBase);
+      const tb = b.skills.find((s) => (s.numeric ? s.numeric.base : s.text) === currentBase);
+      const va = ta && ta.numeric ? ta.numeric.value : 0;
+      const vb = tb && tb.numeric ? tb.numeric.value : 0;
+      return vb - va;
+    }).slice(0, 5);
+    return { relic, otherSkills, idx, currentSkill, currentBase, alternatives };
+  }, [reviewRelicId, reviewSkillIndex, relicById, RELICS]);
 
   // 遺物ごとの合計重要度（スキル単体重要度の合計。ユーザー調整があればそちらを優先）
   const relicImportanceMap = useMemo(() => {
@@ -1935,6 +1989,7 @@ function foldGenericLayers(rows) {
       if (favOnly && !r.fav) return false;
       if (sellOnly && !r.sell) return false;
       if (showObsoleteOnly && !dominanceMap.has(r.id)) return false;
+      if (showCharMismatchOnly && !hasCharMismatchCombo(r)) return false;
       if (importanceMin !== "" && relicImportanceMap.get(r.id) < Number(importanceMin)) return false;
       if (importanceMax !== "" && relicImportanceMap.get(r.id) > Number(importanceMax)) return false;
       if (selectedEffects.length) {
@@ -1955,9 +2010,17 @@ function foldGenericLayers(rows) {
         const vb = findMatchingSkill(b)?.sortKey ?? 0;
         return vb - va;
       });
+    } else if (selectedEffects.length === 1) {
+      // スキルを1つだけ選んでいる時（審査フローのステップ2）：そのスキルのtierが低い順（弱い方から）に並べる
+      const target = selectedEffects[0].value;
+      const tierOf = (r) => {
+        const s = r.skills.find((sk) => skillIdentity(sk) === target);
+        return s && s.numeric ? s.numeric.value : 0;
+      };
+      list = [...list].sort((a, b) => tierOf(a) - tierOf(b) || (relicImportanceMap.get(a.id) - relicImportanceMap.get(b.id)));
     }
     return list;
-  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, showObsoleteOnly, dominanceMap, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
+  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, showObsoleteOnly, dominanceMap, showCharMismatchOnly, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
 
   const visible = filtered.slice(0, visibleCount);
   const statBaseOptions = statCategory === "demerit" ? DEMERIT_BASES : (statCategory !== "none" ? NUMERIC_BASES[statCategory] : []);
@@ -2166,6 +2229,9 @@ function foldGenericLayers(rows) {
           <Chip active={showObsoleteOnly} onClick={() => setShowObsoleteOnly((v) => !v)} colorRing="#B4553A">
             売却候補（上位互換あり）
           </Chip>
+          <Chip active={showCharMismatchOnly} onClick={() => setShowCharMismatchOnly((v) => !v)} colorRing="#C99A5C">
+            キャラ専用効果とキャラ非対応の出撃時変更が同居
+          </Chip>
           <Chip active={sellOnly} onClick={() => setSellOnly((v) => !v)} colorRing="#B4553A">
             <Trash2 size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
             売却フラグ済み
@@ -2220,7 +2286,53 @@ function foldGenericLayers(rows) {
             ))}
           </div>
         )}
+        {selectedEffects.length === 1 && (
+          <div className="review-step-hint">
+            ステップ2：このスキルの保有者を弱い順に並べています。一番弱い遺物から「この遺物を審査」を押すと、その遺物の全スキルを1つずつ確認できます。
+          </div>
+        )}
       </div>
+
+      {reviewData && (
+        <div className="review-panel">
+          <div className="review-panel-header">
+            <div className="review-panel-title">審査中：{reviewData.relic.name}</div>
+            <button className="build-clear-btn" onClick={() => setReviewRelicId(null)}>審査を終了</button>
+          </div>
+          {reviewData.otherSkills.length === 0 ? (
+            <div className="chalice-note">この遺物には、審査対象になる他のスキルがありません（選んだスキルのみの遺物です）。</div>
+          ) : (
+            <>
+              <div className="review-panel-progress">
+                他のスキル {reviewData.idx + 1} / {reviewData.otherSkills.length} 件目を確認中
+              </div>
+              <div className="review-panel-skill">
+                対象スキル：{reviewData.currentSkill.numeric ? reviewData.currentSkill.numeric.base : reviewData.currentSkill.text}
+                {reviewData.currentSkill.numeric && reviewData.currentSkill.numeric.value > 0 ? ` +${reviewData.currentSkill.numeric.value}` : ""}
+              </div>
+              {reviewData.alternatives.length > 0 ? (
+                <ul className="review-panel-list">
+                  {reviewData.alternatives.map((alt) => (
+                    <li key={alt.id}>
+                      {alt.name}：{alt.skills.map((s) => s.numeric ? `${s.numeric.base}${s.numeric.value > 0 ? `+${s.numeric.value}` : ""}` : s.text).join(" / ")}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="chalice-note">同じ色・深度で、このスキルをより良く（同等以上のtierで）持つ他の遺物は見つかりませんでした。この効果に関しては、この遺物が唯一無二の可能性があります。</div>
+              )}
+              {reviewData.idx < reviewData.otherSkills.length - 1 && (
+                <button className="build-start-btn" onClick={() => setReviewSkillIndex((v) => v + 1)}>
+                  次のスキルへ
+                </button>
+              )}
+              {reviewData.idx >= reviewData.otherSkills.length - 1 && (
+                <div className="chalice-note">これで全てのスキルを確認しました。ここまでの内容をもとに、最終判断（お気に入り・売却フラグ・メモ）はご自身で行ってください。</div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="chalice-bar">
         <div className="panel-title">盃（献器）から色を絞り込む・ビルドを組む</div>
@@ -2641,6 +2753,9 @@ function foldGenericLayers(rows) {
                   <div className="card-edit-row">
                     <button className="card-edit-btn" onClick={() => startEdit(r.id)}>編集</button>
                     <button className="card-edit-btn danger" onClick={() => deleteRelic(r.id)}>削除</button>
+                    <button className="card-edit-btn review" onClick={() => { setReviewRelicId(r.id); setReviewSkillIndex(0); }}>
+                      この遺物を審査
+                    </button>
                   </div>
                 </>
               )}
@@ -3564,6 +3679,61 @@ const GLOBAL_CSS = `
 }
 .card-edit-btn.danger:hover {
   background: rgba(180,85,58,0.14);
+}
+.card-edit-btn.review {
+  border-color: #7FA9C9;
+  color: #7FA9C9;
+}
+.review-step-hint {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 11px;
+  color: #7FA9C9;
+  margin-top: 8px;
+}
+.review-panel {
+  max-width: 1100px;
+  margin: 0 auto 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(185,151,74,0.08);
+  border: 1px solid rgba(185,151,74,0.4);
+}
+.review-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.review-panel-title {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #B9974A;
+}
+.review-panel-progress {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 11px;
+  color: #8C7F68;
+  margin-bottom: 4px;
+}
+.review-panel-skill {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 13px;
+  color: #EFE6CC;
+  margin-bottom: 8px;
+}
+.review-panel-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.review-panel-list li {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 12px;
+  color: #B7AD94;
+  line-height: 1.7;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(185,151,74,0.15);
 }
 .skill-list {
   list-style: none;
