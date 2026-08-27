@@ -97,6 +97,17 @@ const EFFECT_TABLE = [{"name":"最大HP上昇","amount":"最大HP+100","calc":"�
 const DAMAGE_TABLE = {"近接攻撃力上昇":{"target":"近接攻撃力上昇","pct":5.0,"stacks":true},"戦技攻撃力上昇":{"target":"戦技攻撃力上昇","pct":15.0,"stacks":true},"通常攻撃の1段目強化":{"target":"通常攻撃の1段目強化","pct":15.0,"stacks":true},"致命の一撃強化":{"target":"致命の一撃強化","pct":17.0,"stacks":true},"致命の一撃強化+1":{"target":"致命の一撃強化+1","pct":24.0,"stacks":true},"咆哮とブレス強化":{"target":"咆哮とブレス強化","pct":15.0,"stacks":true},"武器の持ち替え時、物理攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"属性攻撃力が付加された時、属性攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":true},"攻撃を受けると攻撃力上昇":{"target":"すべての攻撃を強化","pct":15.0,"stacks":false},"輝剣の魔術を強化":{"target":"輝剣の魔術を強化","pct":12.0,"stacks":true},"石掘りの魔術を強化":{"target":"石掘りの魔術を強化","pct":12.0,"stacks":true},"カーリアの剣の魔術を強化":{"target":"カーリアの剣の魔術を強化","pct":12.0,"stacks":true},"不可視の魔術を強化":{"target":"不可視の魔術を強化","pct":12.0,"stacks":true},"結晶人の魔術を強化":{"target":"結晶人の魔術を強化","pct":12.0,"stacks":true},"重力の魔術を強化":{"target":"重力の魔術を強化","pct":12.0,"stacks":true},"茨の魔術を強化":{"target":"茨の魔術を強化","pct":12.0,"stacks":true},"黄金律原理主義の祈祷を強化":{"target":"黄金律原理主義の祈祷を強化","pct":12.0,"stacks":true},"王都古竜信仰の祈祷を強化":{"target":"王都古竜信仰の祈祷を強化","pct":12.0,"stacks":true},"巨人の火の祈祷を強化":{"target":"巨人の火の祈祷を強化","pct":12.0,"stacks":true},"神狩りの祈祷を強化":{"target":"神狩りの祈祷を強化","pct":12.0,"stacks":true},"獣の祈祷を強化":{"target":"獣の祈祷を強化","pct":12.0,"stacks":true},"狂い火の祈祷を強化":{"target":"狂い火の祈祷を強化","pct":12.0,"stacks":true},"竜餐の祈祷を強化":{"target":"竜餐の祈祷を強化","pct":12.0,"stacks":true},"周囲で毒／腐敗状態の発生時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":12.0,"stacks":false},"【鉄の目】アーツ発動後、刺突カウンター強化":{"target":"刺突カウンターを強化","pct":20.0,"stacks":false},"【無頼漢】スキル中に攻撃を受けると攻撃力と最大スタミナ上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"【復讐者】ファミリーと共闘中の間、自身を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"【陰者】アーツ発動時、自身が出血状態になり、攻撃力上昇":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"【陰者】属性痕を集めた時、「魔術の地」が発動":{"target":"魔力攻撃力を強化","pct":22.5,"stacks":false},"【執行者】スキル中の攻撃力上昇、攻撃時にカット率低下":{"target":"妖刀の攻撃を強化","pct":35.0,"stacks":false},"【葬儀屋】アーツ発動時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":18.0,"stacks":false},"【葬儀屋】連撃の最終攻撃命中時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"短剣の攻撃力上昇":{"target":"短剣の攻撃力上昇","pct":9.0,"stacks":true},"直剣の攻撃力上昇":{"target":"直剣の攻撃力上昇","pct":9.0,"stacks":true},"大剣の攻撃力上昇":{"target":"大剣の攻撃力上昇","pct":9.0,"stacks":true},"特大剣の攻撃力上昇":{"target":"特大剣の攻撃力上昇","pct":9.0,"stacks":true},"刺剣の攻撃力上昇":{"target":"刺剣の攻撃力上昇","pct":9.0,"stacks":true},"重刺剣の攻撃力上昇":{"target":"重刺剣の攻撃力上昇","pct":9.0,"stacks":true},"曲剣の攻撃力上昇":{"target":"曲剣の攻撃力上昇","pct":9.0,"stacks":true},"大曲剣の攻撃力上昇":{"target":"大曲剣の攻撃力上昇","pct":9.0,"stacks":true},"刀の攻撃力上昇":{"target":"刀の攻撃力上昇","pct":9.0,"stacks":true},"両刃剣の攻撃力上昇":{"target":"両刃剣の攻撃力上昇","pct":9.0,"stacks":true},"斧の攻撃力上昇":{"target":"斧の攻撃力上昇","pct":9.0,"stacks":true},"大斧の攻撃力上昇":{"target":"大斧の攻撃力上昇","pct":9.0,"stacks":true},"槌の攻撃力上昇":{"target":"槌の攻撃力上昇","pct":9.0,"stacks":true},"フレイルの攻撃力上昇":{"target":"フレイルの攻撃力上昇","pct":9.0,"stacks":true},"大槌の攻撃力上昇":{"target":"大槌の攻撃力上昇","pct":9.0,"stacks":true},"特大武器の攻撃力上昇":{"target":"特大武器の攻撃力上昇","pct":9.0,"stacks":true},"槍の攻撃力上昇":{"target":"槍の攻撃力上昇","pct":9.0,"stacks":true},"大槍の攻撃力上昇":{"target":"大槍の攻撃力上昇","pct":9.0,"stacks":true},"斧槍の攻撃力上昇":{"target":"斧槍の攻撃力上昇","pct":9.0,"stacks":true},"鎌の攻撃力上昇":{"target":"鎌の攻撃力上昇","pct":9.0,"stacks":true},"鞭の攻撃力上昇":{"target":"鞭の攻撃力上昇","pct":9.0,"stacks":true},"拳の攻撃力上昇":{"target":"拳の攻撃力上昇","pct":9.0,"stacks":true},"爪の攻撃力上昇":{"target":"爪の攻撃力上昇","pct":9.0,"stacks":true},"弓の攻撃力上昇":{"target":"弓の攻撃力上昇","pct":6.0,"stacks":true},"短剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"直剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"特大剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"刺剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"重刺剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"曲剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大曲剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"刀の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"両刃剣の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"斧の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大斧の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"槌の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"フレイルの武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大槌の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"特大武器の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"槍の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"大槍の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"斧槍の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"鎌の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"鞭の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"拳の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"爪の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"弓の武器種を3つ以上装備していると攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"属性攻撃力上昇":{"target":"属性攻撃力上昇","pct":5.0,"stacks":true},"属性攻撃力上昇+1":{"target":"属性攻撃力上昇","pct":8.0,"stacks":true},"属性攻撃力上昇+2":{"target":"属性攻撃力上昇","pct":10.0,"stacks":true},"物理攻撃力上昇":{"target":"物理攻撃力上昇","pct":4.0,"stacks":true},"物理攻撃力上昇+1":{"target":"物理攻撃力上昇","pct":5.0,"stacks":true},"物理攻撃力上昇+2":{"target":"物理攻撃力上昇","pct":6.0,"stacks":true},"物理攻撃力上昇+3":{"target":"物理攻撃力上昇","pct":10.5,"stacks":true},"物理攻撃力上昇+4":{"target":"物理攻撃力上昇","pct":12.0,"stacks":true},"魔力攻撃力上昇":{"target":"魔力攻撃力上昇","pct":4.0,"stacks":true},"魔力攻撃力上昇+1":{"target":"魔力攻撃力上昇","pct":5.0,"stacks":true},"魔力攻撃力上昇+2":{"target":"魔力攻撃力上昇","pct":6.0,"stacks":true},"魔力攻撃力上昇+3":{"target":"魔力攻撃力上昇","pct":10.5,"stacks":true},"魔力攻撃力上昇+4":{"target":"魔力攻撃力上昇","pct":12.0,"stacks":true},"炎攻撃力上昇":{"target":"炎攻撃力上昇","pct":4.0,"stacks":true},"炎攻撃力上昇+1":{"target":"炎攻撃力上昇","pct":5.0,"stacks":true},"炎攻撃力上昇+2":{"target":"炎攻撃力上昇","pct":6.0,"stacks":true},"炎攻撃力上昇+3":{"target":"炎攻撃力上昇","pct":10.5,"stacks":true},"炎攻撃力上昇+4":{"target":"炎攻撃力上昇","pct":12.0,"stacks":true},"雷攻撃力上昇":{"target":"雷攻撃力上昇","pct":4.0,"stacks":true},"雷攻撃力上昇+1":{"target":"雷攻撃力上昇","pct":5.0,"stacks":true},"雷攻撃力上昇+2":{"target":"雷攻撃力上昇","pct":6.0,"stacks":true},"雷攻撃力上昇+3":{"target":"雷攻撃力上昇","pct":10.5,"stacks":true},"雷攻撃力上昇+4":{"target":"雷攻撃力上昇","pct":12.0,"stacks":true},"聖攻撃力上昇":{"target":"聖攻撃力上昇","pct":4.0,"stacks":true},"聖攻撃力上昇+1":{"target":"聖攻撃力上昇","pct":5.0,"stacks":true},"聖攻撃力上昇+2":{"target":"聖攻撃力上昇","pct":6.0,"stacks":true},"聖攻撃力上昇+3":{"target":"聖攻撃力上昇","pct":10.5,"stacks":true},"聖攻撃力上昇+4":{"target":"聖攻撃力上昇","pct":12.0,"stacks":true},"魔術強化":{"target":"魔術強化","pct":5.0,"stacks":true},"魔術強化+1":{"target":"魔術強化","pct":8.5,"stacks":true},"魔術強化+2":{"target":"魔術強化","pct":10.0,"stacks":true},"祈祷強化":{"target":"祈祷強化","pct":5.0,"stacks":true},"祈祷強化+1":{"target":"祈祷強化","pct":8.5,"stacks":true},"祈祷強化+2":{"target":"祈祷強化","pct":10.0,"stacks":true},"ガードカウンター強化":{"target":"ガードカウンター強化","pct":17.0,"stacks":true},"ガードカウンター強化+1":{"target":"ガードカウンター強化","pct":25.0,"stacks":true},"ガードカウンター強化+2":{"target":"ガードカウンター強化","pct":29.0,"stacks":true},"脂アイテム使用時、追加で物理攻撃力上昇":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"脂アイテム使用時、追加で物理攻撃力上昇+1":{"target":"すべての攻撃を強化","pct":17.0,"stacks":false},"脂アイテム使用時、追加で物理攻撃力上昇+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"投擲壺の攻撃力上昇":{"target":"投擲壺の攻撃力上昇","pct":15.0,"stacks":true},"投擲壺の攻撃力上昇+1":{"target":"投擲壺の攻撃力上昇","pct":30.0,"stacks":true},"投擲ナイフの攻撃力上昇":{"target":"投擲ナイフの攻撃力上昇","pct":15.0,"stacks":true},"投擲ナイフの攻撃力上昇+1":{"target":"投擲ナイフの攻撃力上昇","pct":30.0,"stacks":true},"輝石、重力石アイテムの攻撃力上昇":{"target":"輝石、重力石アイテムの攻撃力上昇","pct":15.0,"stacks":true},"輝石、重力石アイテムの攻撃力上昇+1":{"target":"輝石、重力石アイテムの攻撃力上昇","pct":30.0,"stacks":true},"調香術強化":{"target":"調香術強化","pct":14.0,"stacks":true},"調香術強化+1":{"target":"調香術強化","pct":30.0,"stacks":true},"毒状態の敵に対する攻撃を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"毒状態の敵に対する攻撃を強化+1":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"毒状態の敵に対する攻撃を強化+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"腐敗状態の敵に対する攻撃を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"腐敗状態の敵に対する攻撃を強化+1":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"腐敗状態の敵に対する攻撃を強化+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"凍傷状態の敵に対する攻撃を強化":{"target":"すべての攻撃を強化","pct":10.0,"stacks":false},"凍傷状態の敵に対する攻撃を強化+1":{"target":"すべての攻撃を強化","pct":16.0,"stacks":false},"凍傷状態の敵に対する攻撃を強化+2":{"target":"すべての攻撃を強化","pct":20.0,"stacks":false},"周囲で睡眠状態の発生時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":12.0,"stacks":false},"周囲で睡眠状態の発生時、攻撃力上昇+1":{"target":"すべての攻撃を強化","pct":22.0,"stacks":false},"周囲で発狂状態の発生時、攻撃力上昇":{"target":"すべての攻撃を強化","pct":12.0,"stacks":false},"周囲で発狂状態の発生時、攻撃力上昇+1":{"target":"すべての攻撃を強化","pct":22.0,"stacks":false}};
 
 const EFFECT_BY_NAME = new Map(EFFECT_TABLE.map((e) => [e.name, e]));
+// 「最大HP上昇」のように、通常/深層で計算方式・重ね掛け可否が異なるのに同じ表記になるスキルの、深度別の実体を引けるようにする
+const DEPTH_SPECIFIC_EFFECT = new Map(); // base名 -> { "景色": entry, "昏景": entry }
+EFFECT_TABLE.forEach((e) => {
+  const m = e.name.match(/^(.+)（(通常|深層)遺物）$/);
+  if (!m) return;
+  const [, base, kind] = m;
+  const depthKey = kind === "通常" ? "景色" : "昏景";
+  if (!DEPTH_SPECIFIC_EFFECT.has(base)) DEPTH_SPECIFIC_EFFECT.set(base, {});
+  DEPTH_SPECIFIC_EFFECT.get(base)[depthKey] = e;
+});
+
 
 // Excel（マスター一覧）上での並び順を再現するための基礎名ごとの最小sortOrder
 const EFFECT_BASE_SORT_ORDER = new Map();
@@ -120,7 +131,12 @@ function excelSortOrder(identity) {
 
 // 最新の効果量データでは武器種ごとの行がすべて具体的に用意されているため、
 // ワイルドカード（○○の...）による名寄せは不要（完全一致のみで足りる）
-function lookupEffectEntry(fullText) {
+// depthを渡すと、「最大HP上昇」のように通常/深層で実体が異なるスキルを、正しい深度の実体に差し替える
+function lookupEffectEntry(fullText, depth) {
+  if (depth && DEPTH_SPECIFIC_EFFECT.has(fullText)) {
+    const byDepth = DEPTH_SPECIFIC_EFFECT.get(fullText);
+    if (byDepth[depth]) return byDepth[depth];
+  }
   return EFFECT_BY_NAME.get(fullText) || null;
 }
 
@@ -162,7 +178,7 @@ function getPercent(base, value, depth) {
   const fullText = value === 0 ? base : `${base}+${value}`;
 
   // 優先1：検証済み効果量データ（遺物効果量.xlsx由来）
-  const entry = lookupEffectEntry(fullText);
+  const entry = lookupEffectEntry(fullText, depth);
   if (entry) {
     const parsed = parseAmountNumber(entry.amount);
     return {
@@ -191,7 +207,7 @@ function getPercent(base, value, depth) {
 // ビルド合算用：スキルが属する「強化枠」の情報を返す（同じ枠のスキル同士が重ね掛け対象）
 // getGroupInfo は常に「配列」を返す（複合効果=1スキルが複数の別ステータスを同時に強化する場合に対応するため）。
 // 通常は要素1つ、計算不可能なものは空配列。
-function getGroupInfo(base, value) {
+function getGroupInfo(base, value, depth) {
   const fullText = value === 0 ? base : `${base}+${value}`;
 
   // 優先1：calc_data.json由来のダメージ計算枠データ（target・重ね掛け可否がより精密）
@@ -201,7 +217,7 @@ function getGroupInfo(base, value) {
   }
 
   // 優先2：効果量データ（強化枠(target)列を直接信頼して使用）
-  const entry = lookupEffectEntry(fullText);
+  const entry = lookupEffectEntry(fullText, depth);
   if (!entry || !entry.calc) return [];
 
   // 複合効果：calcが「ラベル：乗算\nラベル：加算」のように複数行の場合、
@@ -328,6 +344,121 @@ function normalizeSkillText(text) {
   // 「陰者」はキャラ名としてどの位置に出ても「隠者」に補正する
   if (t.includes("陰者")) t = t.replace(/陰者/g, "隠者");
   return t;
+}
+
+/* ===== OCR同期インポート =====
+   OCRツールのitem_idは「動画キー＋タイムスタンプ＋内容」を混ぜた不可逆ハッシュのため、
+   動画をまたいだ同一遺物の追跡には使えない。代わりに、内容だけから計算する signature で照合する。 */
+function genUuid() {
+  return (typeof window !== "undefined" && window.crypto && window.crypto.randomUUID)
+    ? window.crypto.randomUUID()
+    : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// 正規化後の遺物名＋6項目（skill1〜3・各demerit）から、内容一致判定用のキーを作る
+function computeSignature(name, s1, d1, s2, d2, s3, d3) {
+  const norm = (t) => normalizeSkillText(t) || "";
+  return [String(name || "").trim(), norm(s1), norm(d1), norm(s2), norm(d2), norm(s3), norm(d3)].join("‖");
+}
+
+/* OCR JSON（正規化済みのコンパクト行配列。noteは空・fav/sellはfalseのまま、idはOCRのitem_id）と、
+   現在のrawData（コンパクト行配列）をsignatureで照合し、同期結果を返す。
+   ・1対1で内容一致 → 旧のid/note/fav/sellを引き継ぐ
+   ・新規（旧に無い） → 新しいidを発行、note/fav/sellは初期値
+   ・件数が一致しない（複数対複数・1対複数等） → 「要確認」グループに振り分ける（一旦新規として積んでおく）
+   ・消失（新に無い） → note/favが入っているものだけ確認用に残し、それ以外は結果に含めない（＝削除） */
+// OCR同期の確認画面用：1行（コンパクト行配列）の内容を「スキル1（デメリット）／スキル2…」の形で読める文字列にする
+function formatRowSkillsForReview(row) {
+  const parts = [];
+  for (let i = 1; i <= 5; i += 2) {
+    const skill = row[i];
+    const demerit = row[i + 1];
+    if (!skill) continue;
+    parts.push(demerit ? `${skill}（－${demerit}）` : skill);
+  }
+  return parts.length ? parts.join(" ／ ") : "（スキルなし）";
+}
+
+function syncOcrImport(ocrRows, currentRawData) {
+  const sigOf = (row) => computeSignature(row[0], row[1], row[2], row[3], row[4], row[5], row[6]);
+  const hasInfo = (row) => (row[8] && String(row[8]).trim()) || row[9] === true || row[10] === true;
+
+  const oldBySig = new Map();
+  currentRawData.forEach((row) => {
+    const sig = sigOf(row);
+    if (!oldBySig.has(sig)) oldBySig.set(sig, []);
+    oldBySig.get(sig).push(row);
+  });
+  const newBySig = new Map();
+  ocrRows.forEach((row) => {
+    const sig = sigOf(row);
+    if (!newBySig.has(sig)) newBySig.set(sig, []);
+    newBySig.get(sig).push(row);
+  });
+
+  const finalRows = [];
+  const ambiguousGroups = []; // [{sig, sampleRow, newRowIndexes:[finalRows内のindex], oldCandidatesAll, oldCandidatesWithInfo}]
+  let uniqueCarriedCount = 0;
+  let brandNewCount = 0;
+  let autoResolvedCount = 0; // 複数対複数で個体は決まらないが、旧候補に引き継ぐ価値のある情報が無く自動解決したもの
+
+  newBySig.forEach((newRows, sig) => {
+    const oldRows = oldBySig.get(sig) || [];
+    if (oldRows.length === 0) {
+      newRows.forEach((row) => {
+        const r = [...row];
+        r[7] = genUuid(); r[8] = ""; r[9] = false; r[10] = false;
+        finalRows.push(r);
+        brandNewCount++;
+      });
+    } else if (oldRows.length === 1 && newRows.length === 1) {
+      const r = [...newRows[0]];
+      r[7] = oldRows[0][7]; r[8] = oldRows[0][8]; r[9] = oldRows[0][9]; r[10] = oldRows[0][10];
+      finalRows.push(r);
+      uniqueCarriedCount++;
+    } else {
+      const newRowIndexes = [];
+      newRows.forEach((row) => {
+        const r = [...row];
+        r[7] = genUuid(); r[8] = ""; r[9] = false; r[10] = false;
+        finalRows.push(r);
+        newRowIndexes.push(finalRows.length - 1);
+      });
+      const oldCandidatesWithInfo = oldRows.filter(hasInfo);
+      if (oldCandidatesWithInfo.length === 0) {
+        // 旧候補の誰も引き継ぐ価値のある情報を持っていないので、聞かずに新規のまま自動解決する
+        autoResolvedCount += newRows.length;
+      } else {
+        ambiguousGroups.push({ sig, sampleRow: newRows[0], newRowIndexes, oldCandidatesAll: oldRows, oldCandidatesWithInfo });
+      }
+    }
+  });
+
+  const vanishingWithInfo = [];
+  let vanishedSilentCount = 0;
+  oldBySig.forEach((oldRows, sig) => {
+    if (newBySig.has(sig)) return;
+    oldRows.forEach((row) => {
+      if (hasInfo(row)) vanishingWithInfo.push(row);
+      else vanishedSilentCount++;
+    });
+  });
+
+  return {
+    finalRows,
+    ambiguousGroups,
+    vanishingWithInfo,
+    summary: {
+      before: currentRawData.length,
+      newVideo: ocrRows.length,
+      brandNew: brandNewCount,
+      uniqueCarried: uniqueCarriedCount,
+      autoResolved: autoResolvedCount,
+      ambiguous: ambiguousGroups.reduce((s, g) => s + g.newRowIndexes.length, 0),
+      vanishedSilent: vanishedSilentCount,
+      vanishedWithInfo: vanishingWithInfo.length,
+    },
+  };
 }
 
 // rawDataの行配列を [name,s1,d1,s2,d2,s3,d3,id,note,fav,sell] の11要素に揃える（旧形式の短い行にも対応）
@@ -543,7 +674,7 @@ function computeProtectedIds(groups, overrides) {
           if (dmg) {
             stackableOf.set(base, dmg.stacks);
           } else {
-            const entry = lookupEffectEntry(s.importanceKey);
+            const entry = lookupEffectEntry(s.importanceKey, r.depth);
             stackableOf.set(base, entry ? entry.stackable : null);
           }
         }
@@ -708,10 +839,10 @@ function hasCharMismatchCombo(relic) {
 }
 
 // あるスキルの「同一スキル名の重ね掛け」可否を調べる（DAMAGE_TABLEを優先、無ければ効果量データを見る）
-function lookupStackable(skillText) {
+function lookupStackable(skillText, depth) {
   const dmg = DAMAGE_TABLE[skillText];
   if (dmg) return dmg.stacks;
-  const entry = lookupEffectEntry(skillText);
+  const entry = lookupEffectEntry(skillText, depth);
   return entry ? entry.stackable : null;
 }
 
@@ -731,7 +862,7 @@ function computeBuildActiveFlags(orderedRelics, chaliceChar) {
       usedCategory.add(category);
       return true;
     }
-    if (lookupStackable(skillText) === false) {
+    if (lookupStackable(skillText, relic.depth) === false) {
       if (usedNonStackable.has(skillText)) return false;
       usedNonStackable.add(skillText);
     }
@@ -1001,14 +1132,15 @@ export default function RelicVault() {
   const [keyword, setKeyword] = useState("");
   const [favOnly, setFavOnly] = useState(false);
   const [sellOnly, setSellOnly] = useState(false);
-  const [showObsoleteOnly, setShowObsoleteOnly] = useState(false);
-  const [showCharMismatchOnly, setShowCharMismatchOnly] = useState(false);
+  const [sellCandidateFilter, setSellCandidateFilter] = useState(""); // ""=指定なし, "complete", "charMismatch", "partial"
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [importanceMin, setImportanceMin] = useState(""); // ""=指定なし
   const [importanceMax, setImportanceMax] = useState("");
   const [selectedEffects, setSelectedEffects] = useState([]); // [{value,label}]
   const [reviewRelicId, setReviewRelicId] = useState(null); // 審査中の候補遺物（ステップ3）
   const [reviewSkillIndex, setReviewSkillIndex] = useState(0); // 審査中、今見ているスキルの番号
   const [importanceOverrides, setImportanceOverrides] = useState({}); // { [skillFullText]: number(1-10) } ユーザー調整分のみ
+  const [reviewStatus, setReviewStatus] = useState({}); // { [relicId]: "pending" | "needed" }（未審査はキー無し）
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loaded, setLoaded] = useState(false);
 
@@ -1057,6 +1189,12 @@ export default function RelicVault() {
       try {
         const res2b = await storage.get("relic-importance-overrides", false);
         if (res2b && res2b.value) setImportanceOverrides(JSON.parse(res2b.value));
+      } catch (e) {
+        // 未保存キー
+      }
+      try {
+        const res2c = await storage.get("relic-review-status", false);
+        if (res2c && res2c.value) setReviewStatus(JSON.parse(res2c.value));
       } catch (e) {
         // 未保存キー
       }
@@ -1110,25 +1248,68 @@ export default function RelicVault() {
     reader.readAsText(file, "utf-8");
   }, []);
 
-  // ファイル選択が使えない環境（アプリ内WebView等）向けに、貼り付けたJSONテキストから直接読み込む
-  const [showPasteData, setShowPasteData] = useState(false);
-  const [pasteDataText, setPasteDataText] = useState("");
-  const handleImportPastedData = useCallback(() => {
+  // OCR同期インポート：signatureで照合し、note/fav/sellを引き継ぐ形の同期
+  const [showOcrSync, setShowOcrSync] = useState(false);
+  const [ocrSyncResult, setOcrSyncResult] = useState(null); // syncOcrImportの結果（確認画面用）
+  const [ocrSyncAssignments, setOcrSyncAssignments] = useState({}); // {groupSig: {oldIndex: finalRowsIndex}}
+  const [ocrSyncKeepVanished, setOcrSyncKeepVanished] = useState({}); // {vanishIndex: true} 消失予定だが残すと選んだもの
+  const ocrSyncFileInputRef = React.useRef(null);
+
+  const runOcrSyncAnalyze = useCallback((jsonText) => {
     setImportErr("");
     setImportMsg("");
     try {
-      const json = JSON.parse(pasteDataText);
+      const json = JSON.parse(jsonText);
       const rows = normalizeImportedData(json);
-      if (!rows.length) throw new Error("遺物データが空です");
-      setRawData(rows);
-      storage.set("relic-rawdata", JSON.stringify(rows), false).catch(() => {});
-      setImportMsg(`${rows.length.toLocaleString()} 件の遺物データを読み込みました`);
-      setPasteDataText("");
-      setShowPasteData(false);
+      if (!rows.length) throw new Error("OCRデータが空です");
+      const result = syncOcrImport(rows, rawData);
+      setOcrSyncResult(result);
+      setOcrSyncAssignments({});
+      setOcrSyncKeepVanished({});
     } catch (e) {
-      setImportErr(`読み込み失敗：${e.message || "JSON形式を確認してください"}`);
+      setImportErr(`解析失敗：${e.message || "JSON形式を確認してください"}`);
     }
-  }, [pasteDataText]);
+  }, [rawData]);
+
+  const handleOcrSyncFile = useCallback((file) => {
+    const reader = new FileReader();
+    reader.onload = () => runOcrSyncAnalyze(reader.result);
+    reader.onerror = () => setImportErr("ファイルの読み込みに失敗しました");
+    reader.readAsText(file, "utf-8");
+  }, [runOcrSyncAnalyze]);
+
+  const handleOcrSyncConfirm = useCallback(() => {
+    if (!ocrSyncResult) return;
+    let rows = [...ocrSyncResult.finalRows];
+    // 要確認グループの割り当てを反映
+    Object.entries(ocrSyncAssignments).forEach(([sig, byOldIndex]) => {
+      const group = ocrSyncResult.ambiguousGroups.find((g) => g.sig === sig);
+      if (!group) return;
+      Object.entries(byOldIndex).forEach(([oldIdxStr, finalIdx]) => {
+        const oldIdx = Number(oldIdxStr);
+        if (finalIdx === "" || finalIdx === null || finalIdx === undefined) return;
+        const oldRow = group.oldCandidatesWithInfo[oldIdx];
+        const target = rows[finalIdx];
+        if (oldRow && target) {
+          rows[finalIdx] = [...target];
+          rows[finalIdx][7] = oldRow[7];
+          rows[finalIdx][8] = oldRow[8];
+          rows[finalIdx][9] = oldRow[9];
+          rows[finalIdx][10] = oldRow[10];
+        }
+      });
+    });
+    // 「残す」を選んだ消失予定行を追加で戻す
+    ocrSyncResult.vanishingWithInfo.forEach((row, i) => {
+      if (ocrSyncKeepVanished[i]) rows.push(row);
+    });
+    setRawData(rows);
+    storage.set("relic-rawdata", JSON.stringify(rows), false).catch(() => {});
+    setImportMsg(`OCR同期を反映しました（${rows.length.toLocaleString()}件）`);
+    setOcrSyncResult(null);
+    setOcrSyncText("");
+    setShowOcrSync(false);
+  }, [ocrSyncResult, ocrSyncAssignments, ocrSyncKeepVanished]);
 
   const handleExportData = useCallback(() => {
     downloadJson(`relics_export_${jstTimestamp()}.json`, toExportFormat(rawData));
@@ -1243,22 +1424,6 @@ export default function RelicVault() {
     reader.readAsText(file, "utf-8");
   }, []);
 
-  const [showPasteSettings, setShowPasteSettings] = useState(false);
-  const [pasteSettingsText, setPasteSettingsText] = useState("");
-  const handleImportPastedSettings = useCallback(() => {
-    setImportErr("");
-    setImportMsg("");
-    try {
-      const json = JSON.parse(pasteSettingsText);
-      applySettingsJson(json);
-      setImportMsg("個人設定を読み込みました");
-      setPasteSettingsText("");
-      setShowPasteSettings(false);
-    } catch (e) {
-      setImportErr(`読み込み失敗：${e.message || "JSON形式を確認してください"}`);
-    }
-  }, [pasteSettingsText]);
-
   // 新しい配列全体を丸ごと保存する（キャラ×盃単位で最大5個の名前付きビルドを管理）
   const persistBuildList = useCallback((charName, chaliceLabel, nextList) => {
     setBuilds((prev) => {
@@ -1300,6 +1465,17 @@ export default function RelicVault() {
       if (value === null) delete next[skillKey];
       else next[skillKey] = value;
       storage.set("relic-importance-overrides", JSON.stringify(next), false).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  // 審査ステータス：未審査（キー無し）／保留（pending）／必要（needed、売却候補フィルタから除外する）
+  const setRelicReviewStatus = useCallback((relicId, status) => {
+    setReviewStatus((prev) => {
+      const next = { ...prev };
+      if (!status) delete next[relicId];
+      else next[relicId] = status;
+      storage.set("relic-review-status", JSON.stringify(next), false).catch(() => {});
       return next;
     });
   }, []);
@@ -1429,7 +1605,7 @@ export default function RelicVault() {
     setVisibleCount(PAGE_SIZE);
   };
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, showObsoleteOnly, showCharMismatchOnly, selectedEffects]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, sellCandidateFilter, showPendingOnly, selectedEffects]);
   useEffect(() => { setStatBase("all"); setStatUsePercent(false); }, [statCategory]);
 
   // AND検索: 全角/半角スペース区切りのトークンを全て満たす
@@ -1543,6 +1719,33 @@ export default function RelicVault() {
 
 
   const { map: dominanceMap, protectionReasons } = useMemo(() => buildDominanceMap(RELICS, importanceOverrides), [RELICS, importanceOverrides]);
+  // 完全上位互換かどうか（supersededByの中にtype==="full"が1つでもあるか）
+  const isCompleteDominated = useCallback((r) => {
+    const s = dominanceMap.get(r.id);
+    return !!s && s.some((x) => x.type === "full");
+  }, [dominanceMap]);
+  // その他上位互換＝上位互換はあるが、完全上位互換ではないもの（今の上位互換から完全上位互換を引いたもの）
+  const isPartialOnlyDominated = useCallback((r) => {
+    const s = dominanceMap.get(r.id);
+    return !!s && !s.some((x) => x.type === "full");
+  }, [dominanceMap]);
+  // 各売却候補フィルタの「未処理（必要フラグが付いていない）」件数：ドロップダウンの進捗表示に使う
+  const completeUnresolvedCount = useMemo(
+    () => RELICS.filter((r) => isCompleteDominated(r) && reviewStatus[r.id] !== "needed").length,
+    [RELICS, isCompleteDominated, reviewStatus]
+  );
+  const charMismatchUnresolvedCount = useMemo(
+    () => RELICS.filter((r) => hasCharMismatchCombo(r) && reviewStatus[r.id] !== "needed").length,
+    [RELICS, reviewStatus]
+  );
+  const partialUnresolvedCount = useMemo(
+    () => RELICS.filter((r) => isPartialOnlyDominated(r) && reviewStatus[r.id] !== "needed").length,
+    [RELICS, isPartialOnlyDominated, reviewStatus]
+  );
+  const pendingCount = useMemo(
+    () => RELICS.filter((r) => reviewStatus[r.id] === "pending").length,
+    [RELICS, reviewStatus]
+  );
 
   const relicById = useMemo(() => {
     const map = new Map();
@@ -1825,9 +2028,9 @@ function foldGenericLayers(rows) {
         if (!flags[si]) return; // 発動しないスキルは集計から除外
         if (s.numeric) {
           const fullText = s.numeric.value === 0 ? s.numeric.base : `${s.numeric.base}+${s.numeric.value}`;
-          const giList = getGroupInfo(s.numeric.base, s.numeric.value); // 配列（複合効果は複数要素）
+          const giList = getGroupInfo(s.numeric.base, s.numeric.value, relic.depth); // 配列（複合効果は複数要素）
           const pct = getPercent(s.numeric.base, s.numeric.value, relic.depth);
-          const entryForClassify = lookupEffectEntry(fullText);
+          const entryForClassify = lookupEffectEntry(fullText, relic.depth);
           const conditional = isConditionalEffect(fullText, entryForClassify);
           const duration = isDurationEffect(entryForClassify);
           const display = pct ? formatPercent(pct) : (s.numeric.value === 0 ? "" : `+${s.numeric.value}`);
@@ -1988,8 +2191,11 @@ function foldGenericLayers(rows) {
       if (depthFilter.size > 0 && !r.special && !depthFilter.has(r.depth)) return false;
       if (favOnly && !r.fav) return false;
       if (sellOnly && !r.sell) return false;
-      if (showObsoleteOnly && !dominanceMap.has(r.id)) return false;
-      if (showCharMismatchOnly && !hasCharMismatchCombo(r)) return false;
+      if (sellCandidateFilter && reviewStatus[r.id] === "needed") return false;
+      if (sellCandidateFilter === "complete" && !isCompleteDominated(r)) return false;
+      if (sellCandidateFilter === "charMismatch" && !hasCharMismatchCombo(r)) return false;
+      if (sellCandidateFilter === "partial" && !isPartialOnlyDominated(r)) return false;
+      if (showPendingOnly && reviewStatus[r.id] !== "pending") return false;
       if (importanceMin !== "" && relicImportanceMap.get(r.id) < Number(importanceMin)) return false;
       if (importanceMax !== "" && relicImportanceMap.get(r.id) > Number(importanceMax)) return false;
       if (selectedEffects.length) {
@@ -2020,7 +2226,7 @@ function foldGenericLayers(rows) {
       list = [...list].sort((a, b) => tierOf(a) - tierOf(b) || (relicImportanceMap.get(a.id) - relicImportanceMap.get(b.id)));
     }
     return list;
-  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, showObsoleteOnly, dominanceMap, showCharMismatchOnly, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
+  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, isPartialOnlyDominated, showPendingOnly, reviewStatus, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
 
   const visible = filtered.slice(0, visibleCount);
   const statBaseOptions = statCategory === "demerit" ? DEMERIT_BASES : (statCategory !== "none" ? NUMERIC_BASES[statCategory] : []);
@@ -2129,24 +2335,118 @@ function foldGenericLayers(rows) {
               e.target.value = "";
             }}
           />
+
           <div className="data-panel-row">
-            <button className="data-btn secondary" onClick={() => setShowPasteData((v) => !v)}>
-              {showPasteData ? "貼り付け欄を閉じる ▲" : "ファイルが開けない場合：JSONを貼り付けて読み込む ▾"}
+            <button className="data-btn secondary" onClick={() => setShowOcrSync((v) => !v)}>
+              {showOcrSync ? "OCR同期を閉じる ▲" : "OCRツールの結果を同期する（note・お気に入り・売却フラグを引き継ぎ） ▾"}
             </button>
           </div>
-          {showPasteData && (
+          {showOcrSync && !ocrSyncResult && (
             <div className="paste-import-box">
-              <textarea
-                className="paste-textarea"
-                placeholder="遺物データのJSONの中身をここに貼り付け…"
-                value={pasteDataText}
-                onChange={(e) => setPasteDataText(e.target.value)}
+              <div className="chalice-note" style={{ marginTop: 0 }}>
+                OCRツールが出力した「&lt;動画名&gt;_relics.json」ファイルを選んでください。内容が同じ遺物は、今のnote・お気に入り・売却フラグを自動で引き継ぎます。
+              </div>
+              <input
+                id="ocr-sync-file-input"
+                ref={ocrSyncFileInputRef}
+                type="file"
+                accept=".json,application/json,text/plain,text/json"
+                className="visually-hidden-file"
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  if (f) handleOcrSyncFile(f);
+                  e.target.value = "";
+                }}
               />
-              <button className="data-btn" onClick={handleImportPastedData} disabled={!pasteDataText.trim()}>
-                貼り付けた内容を読み込む
-              </button>
+              <label htmlFor="ocr-sync-file-input" className="data-btn file-label-btn">
+                OCR結果ファイルを選ぶ
+              </label>
             </div>
           )}
+          {ocrSyncResult && (
+            <div className="ocr-sync-review">
+              <div className="chalice-note" style={{ marginTop: 0 }}>
+                これはプレビューです。「インポートを確定」を押すまでデータは変更されません。
+              </div>
+              <ul className="ocr-sync-summary">
+                <li>これまでの遺物数：{ocrSyncResult.summary.before.toLocaleString()}件</li>
+                <li>新しい動画の遺物数：{ocrSyncResult.summary.newVideo.toLocaleString()}件</li>
+                <li className="ocr-sync-summary-gap">新規（今回初めて検出）：{ocrSyncResult.summary.brandNew.toLocaleString()}件</li>
+                <li>自動引き継ぎ：{ocrSyncResult.summary.uniqueCarried.toLocaleString()}件</li>
+                <li>自動解決（同一内容だが引き継ぐ情報なし）：{ocrSyncResult.summary.autoResolved.toLocaleString()}件</li>
+                <li>自動削除（売却フラグのみ／情報なし）：{ocrSyncResult.summary.vanishedSilent.toLocaleString()}件</li>
+                <li className="ocr-sync-summary-gap">要確認</li>
+                <li>・複数と内容完全一致、引き継ぎ判断が必要：{ocrSyncResult.summary.ambiguous.toLocaleString()}件</li>
+                <li>・削除項目だがnote・お気に入りあり：{ocrSyncResult.summary.vanishedWithInfo.toLocaleString()}件</li>
+              </ul>
+
+              {ocrSyncResult.ambiguousGroups.length > 0 && (
+                <>
+                  <div className="review-panel-title" style={{ marginTop: 12 }}>
+                    要確認：複数遺物と同一内容で完全一致（{ocrSyncResult.ambiguousGroups.length.toLocaleString()}件）
+                  </div>
+                  <div className="chalice-note" style={{ marginTop: 0 }}>どの遺物に前回データを引き継ぎますか？</div>
+                  {ocrSyncResult.ambiguousGroups.map((g) => (
+                    <div key={g.sig} className="ocr-sync-group">
+                      <div className="review-panel-skill">{g.sampleRow[0]}</div>
+                      <div className="ocr-sync-group-content">{formatRowSkillsForReview(g.sampleRow)}</div>
+                      <div className="chalice-note" style={{ marginTop: 2, marginBottom: 6 }}>
+                        新規{g.newRowIndexes.length}件 / 旧候補{g.oldCandidatesAll.length}件（うち引き継ぎ対象{g.oldCandidatesWithInfo.length}件）
+                      </div>
+                      {g.oldCandidatesWithInfo.map((old, oi) => (
+                        <div key={oi} className="ocr-sync-old-row">
+                          <span>
+                            旧候補{oi + 1}：
+                            {old[9] ? "★お気に入り " : ""}
+                            {old[10] ? "売却予定 " : ""}
+                            {old[8] ? `メモ「${old[8]}」` : ""}
+                          </span>
+                          <select
+                            className="select-input"
+                            value={(ocrSyncAssignments[g.sig] && ocrSyncAssignments[g.sig][oi]) ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value === "" ? "" : Number(e.target.value);
+                              setOcrSyncAssignments((prev) => ({
+                                ...prev,
+                                [g.sig]: { ...(prev[g.sig] || {}), [oi]: v },
+                              }));
+                            }}
+                          >
+                            <option value="">引き継がない</option>
+                            {g.newRowIndexes.map((fi, ni) => (
+                              <option key={fi} value={fi}>新規行{ni + 1}へ引き継ぐ</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {ocrSyncResult.vanishingWithInfo.length > 0 && (
+                <>
+                  <div className="review-panel-title" style={{ marginTop: 12 }}>要確認：note・お気に入りが付いたまま消える遺物</div>
+                  {ocrSyncResult.vanishingWithInfo.map((row, i) => (
+                    <label key={i} className="ocr-sync-vanish-row">
+                      <input
+                        type="checkbox"
+                        checked={!!ocrSyncKeepVanished[i]}
+                        onChange={(e) => setOcrSyncKeepVanished((prev) => ({ ...prev, [i]: e.target.checked }))}
+                      />
+                      {row[0]}：{row[9] ? "★お気に入り " : ""}{row[8] ? `メモ「${row[8]}」` : ""}（チェックすると削除せず残します）
+                    </label>
+                  ))}
+                </>
+              )}
+
+              <div className="data-panel-row" style={{ marginTop: 12 }}>
+                <button className="data-btn" onClick={handleOcrSyncConfirm}>インポートを確定</button>
+                <button className="data-btn secondary" onClick={() => { setOcrSyncResult(null); setOcrSyncText(""); }}>キャンセル</button>
+              </div>
+            </div>
+          )}
+
           <div className="data-panel-row">
             <button className="data-btn" onClick={handleExportSettings}>
               個人設定（お気に入り・タグ・ビルド）を書き出す
@@ -2167,24 +2467,6 @@ function foldGenericLayers(rows) {
               e.target.value = "";
             }}
           />
-          <div className="data-panel-row">
-            <button className="data-btn secondary" onClick={() => setShowPasteSettings((v) => !v)}>
-              {showPasteSettings ? "貼り付け欄を閉じる ▲" : "ファイルが開けない場合：JSONを貼り付けて読み込む ▾"}
-            </button>
-          </div>
-          {showPasteSettings && (
-            <div className="paste-import-box">
-              <textarea
-                className="paste-textarea"
-                placeholder="個人設定のJSONの中身をここに貼り付け…"
-                value={pasteSettingsText}
-                onChange={(e) => setPasteSettingsText(e.target.value)}
-              />
-              <button className="data-btn" onClick={handleImportPastedSettings} disabled={!pasteSettingsText.trim()}>
-                貼り付けた内容を読み込む
-              </button>
-            </div>
-          )}
           {importMsg && <div className="data-msg">{importMsg}</div>}
           {importErr && <div className="data-err">{importErr}</div>}
 
@@ -2226,11 +2508,18 @@ function foldGenericLayers(rows) {
             <Star size={12} style={{ marginRight: 4, verticalAlign: -2 }} fill={favOnly ? "#B9974A" : "none"} />
             お気に入り
           </Chip>
-          <Chip active={showObsoleteOnly} onClick={() => setShowObsoleteOnly((v) => !v)} colorRing="#B4553A">
-            売却候補（上位互換あり）
-          </Chip>
-          <Chip active={showCharMismatchOnly} onClick={() => setShowCharMismatchOnly((v) => !v)} colorRing="#C99A5C">
-            キャラ専用効果とキャラ非対応の出撃時変更が同居
+          <select
+            className="select-input sell-candidate-select"
+            value={sellCandidateFilter}
+            onChange={(e) => setSellCandidateFilter(e.target.value)}
+          >
+            <option value="">売却候補で絞り込む ▾</option>
+            <option value="complete">売却候補：完全上位互換（{completeUnresolvedCount.toLocaleString()}件）</option>
+            <option value="charMismatch">売却候補：キャラ不適合の戦技変更（{charMismatchUnresolvedCount.toLocaleString()}件）</option>
+            <option value="partial">売却候補：その他上位互換（{partialUnresolvedCount.toLocaleString()}件、精度に注意）</option>
+          </select>
+          <Chip active={showPendingOnly} onClick={() => setShowPendingOnly((v) => !v)} colorRing="#7FA9C9">
+            保留のみ（{pendingCount.toLocaleString()}件）
           </Chip>
           <Chip active={sellOnly} onClick={() => setSellOnly((v) => !v)} colorRing="#B4553A">
             <Trash2 size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
@@ -2726,6 +3015,9 @@ function foldGenericLayers(rows) {
                     </button>
                   </div>
 
+                  {reviewStatus[r.id] === "pending" && <div className="review-status-badge pending">保留</div>}
+                  {reviewStatus[r.id] === "needed" && <div className="review-status-badge needed">必要（売却候補から除外中）</div>}
+
                   {isReviewing && reviewData && (
                     <div className="review-panel-inline">
                       {reviewData.otherSkills.length === 0 ? (
@@ -2750,15 +3042,30 @@ function foldGenericLayers(rows) {
                           ) : (
                             <div className="chalice-note">同じ色・深度で、同等以上のtierを持つ他の遺物は見つかりませんでした。この効果に関しては唯一無二の可能性があります。</div>
                           )}
-                          {reviewData.idx < reviewData.otherSkills.length - 1 ? (
-                            <button className="build-start-btn" onClick={() => setReviewSkillIndex((v) => v + 1)}>
-                              次のスキルへ
-                            </button>
-                          ) : (
+                          <div className="card-edit-row">
+                            {reviewData.idx > 0 && (
+                              <button className="build-start-btn secondary" onClick={() => setReviewSkillIndex((v) => v - 1)}>
+                                前のスキルへ
+                              </button>
+                            )}
+                            {reviewData.idx < reviewData.otherSkills.length - 1 && (
+                              <button className="build-start-btn" onClick={() => setReviewSkillIndex((v) => v + 1)}>
+                                次のスキルへ
+                              </button>
+                            )}
+                          </div>
+                          {reviewData.idx >= reviewData.otherSkills.length - 1 && (
                             <div className="chalice-note">全スキルを確認しました。最終判断（お気に入り・売却フラグ・メモ）はご自身で行ってください。</div>
                           )}
                         </>
                       )}
+                      <div className="card-edit-row" style={{ marginTop: 8 }}>
+                        <button className="card-edit-btn" onClick={() => setRelicReviewStatus(r.id, "pending")}>保留にする</button>
+                        <button className="card-edit-btn" onClick={() => setRelicReviewStatus(r.id, "needed")}>この遺物は必要</button>
+                        {reviewStatus[r.id] && (
+                          <button className="card-edit-btn" onClick={() => setRelicReviewStatus(r.id, null)}>未審査に戻す</button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
@@ -2898,6 +3205,10 @@ const GLOBAL_CSS = `
   outline: none;
 }
 .select-input:disabled { color: #4A4636; }
+.select-input.sell-candidate-select {
+  border-color: #B4553A;
+  max-width: 100%;
+}
 .number-input {
   font-family: 'Zen Kaku Gothic New', sans-serif;
   font-size: 12.5px;
@@ -2965,6 +3276,12 @@ const GLOBAL_CSS = `
   border-radius: 6px;
   cursor: pointer;
   margin-top: 10px;
+}
+.build-start-btn.secondary {
+  background: transparent;
+  border-color: #3A322A;
+  color: #8C7F68;
+  margin-right: 8px;
 }
 .build-panel {
   margin-top: 14px;
@@ -3462,6 +3779,58 @@ const GLOBAL_CSS = `
   flex-direction: column;
   gap: 8px;
 }
+.ocr-sync-review {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(185,151,74,0.08);
+  border: 1px solid rgba(185,151,74,0.4);
+}
+.ocr-sync-summary {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 12px;
+  color: #B7AD94;
+}
+.ocr-sync-summary li {
+  line-height: 1.8;
+}
+.ocr-sync-summary li.ocr-sync-summary-gap {
+  margin-top: 8px;
+}
+.ocr-sync-group {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.15);
+}
+.ocr-sync-group-content {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 11.5px;
+  color: #C9BFA5;
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+.ocr-sync-old-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 11.5px;
+  color: #B7AD94;
+  padding: 4px 0;
+}
+.ocr-sync-vanish-row {
+  display: block;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 12px;
+  color: #B7AD94;
+  padding: 4px 0;
+}
 .paste-textarea {
   width: 100%;
   box-sizing: border-box;
@@ -3705,6 +4074,24 @@ const GLOBAL_CSS = `
   border-radius: 8px;
   background: rgba(185,151,74,0.08);
   border: 1px solid rgba(185,151,74,0.4);
+}
+.review-status-badge {
+  display: inline-block;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 10.5px;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-top: 6px;
+}
+.review-status-badge.pending {
+  color: #F5E9CC;
+  background: rgba(214,184,122,0.20);
+  border: 1px solid #D6B87A;
+}
+.review-status-badge.needed {
+  color: #DCF0DE;
+  background: rgba(143,196,154,0.20);
+  border: 1px solid #8FC49A;
 }
 .review-panel-progress {
   font-family: 'Zen Kaku Gothic New', sans-serif;
