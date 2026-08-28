@@ -849,6 +849,59 @@ function hasCharMismatchCombo(relic) {
   return false;
 }
 
+// 魔術/祈祷適性判定：Lv15の4パターン（通常/変更1/変更2/両方積み）全てで、
+// 知力(またはFTH)とFPの両方が基準未満のキャラは「確定非対応」（症例検討で確認済み）。
+// 基準：知力28・信仰41・FP140（10キャラの自然な区切りから設定）
+const MAGIC_NO_APTITUDE_CHARS = ["守護者", "鉄の目", "執行者"];
+const PRAYER_NO_APTITUDE_CHARS = ["追跡者", "守護者", "鉄の目", "レディ", "無頼漢", "執行者", "学者"];
+
+// スキルのtier無視の基礎名（数値スキルはnumeric.base、それ以外はtextそのもの）
+function skillBaseName(s) {
+  return s.numeric ? s.numeric.base : s.text;
+}
+function isMagicRelatedSkill(baseName) {
+  if (weaponChangeCategory(baseName) === "魔術") return true;
+  if (baseName === "魔術強化") return true;
+  if (/の魔術を強化$/.test(baseName)) return true;
+  if (baseName === "潜在する力から、杖を見つけやすくなる") return true;
+  return false;
+}
+function isPrayerRelatedSkill(baseName) {
+  if (weaponChangeCategory(baseName) === "祈祷") return true;
+  if (baseName === "祈祷強化") return true;
+  if (/の祈祷を強化$/.test(baseName)) return true;
+  if (baseName === "潜在する力から、聖印を見つけやすくなる") return true;
+  return false;
+}
+// 「【キャラX】専用スキル」と「Xが魔術適性確定非対応なのに魔術関連スキル」が同居しているか
+function hasMagicNoAptitudeCombo(relic) {
+  const texts = relic.skills.map((s) => skillFullText(s));
+  for (const t of texts) {
+    const m = t.match(/^【(.+?)】/);
+    if (!m) continue;
+    const owner = m[1];
+    if (!MAGIC_NO_APTITUDE_CHARS.includes(owner)) continue;
+    for (const s2 of relic.skills) {
+      if (isMagicRelatedSkill(skillBaseName(s2))) return true;
+    }
+  }
+  return false;
+}
+// 「【キャラX】専用スキル」と「Xが祈祷適性確定非対応なのに祈祷関連スキル」が同居しているか
+function hasPrayerNoAptitudeCombo(relic) {
+  const texts = relic.skills.map((s) => skillFullText(s));
+  for (const t of texts) {
+    const m = t.match(/^【(.+?)】/);
+    if (!m) continue;
+    const owner = m[1];
+    if (!PRAYER_NO_APTITUDE_CHARS.includes(owner)) continue;
+    for (const s2 of relic.skills) {
+      if (isPrayerRelatedSkill(skillBaseName(s2))) return true;
+    }
+  }
+  return false;
+}
+
 // あるスキルの「同一スキル名の重ね掛け」可否を調べる（DAMAGE_TABLEを優先、無ければ効果量データを見る）
 function lookupStackable(skillText, depth) {
   const dmg = DAMAGE_TABLE[skillText];
@@ -1145,6 +1198,7 @@ function RelicVaultInner() {
   const [sellOnly, setSellOnly] = useState(false);
   const [sellCandidateFilter, setSellCandidateFilter] = useState(""); // ""=指定なし, "complete", "charMismatch", "partial"
   const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [showNeededOnly, setShowNeededOnly] = useState(false);
   const [importanceMin, setImportanceMin] = useState(""); // ""=指定なし
   const [importanceMax, setImportanceMax] = useState("");
   const [selectedEffects, setSelectedEffects] = useState([]); // [{value,label}]
@@ -1379,8 +1433,18 @@ function RelicVaultInner() {
         const slots = val.mode === "deep" ? [null, null, null, ...val.slots] : [...val.slots, null, null, null];
         out[charName] = { [chaliceLabel]: [{ id: genId(), name: chaliceLabel, colors, depths, slots }] };
       } else if (val && typeof val === "object") {
-        // 既に新形式（盃→配列）とみなす
-        out[charName] = val;
+        // 新形式（盃→配列）のはず。ただし過去のバージョンや手動編集で、
+        // 各盃の値が実際には配列でない/中身が壊れているデータが混ざっている場合があるため、
+        // ここで検証し、不正なものは保存せずに取り除く（後段でのクラッシュを防ぐ）
+        const validated = {};
+        Object.entries(val).forEach(([chaliceLabel, list]) => {
+          if (!Array.isArray(list)) return; // 配列でない盃データは破棄
+          const validList = list.filter(
+            (b) => b && typeof b === "object" && Array.isArray(b.slots)
+          );
+          if (validList.length) validated[chaliceLabel] = validList;
+        });
+        if (Object.keys(validated).length) out[charName] = validated;
       }
     });
     return out;
@@ -1624,7 +1688,7 @@ function RelicVaultInner() {
     setVisibleCount(PAGE_SIZE);
   };
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, sellCandidateFilter, showPendingOnly, selectedEffects]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, sellCandidateFilter, showPendingOnly, showNeededOnly, selectedEffects]);
   useEffect(() => { setStatBase("all"); setStatUsePercent(false); }, [statCategory]);
 
   // AND検索: 全角/半角スペース区切りのトークンを全て満たす
@@ -1762,12 +1826,24 @@ function RelicVaultInner() {
     () => RELICS.filter((r) => hasCharMismatchCombo(r) && isUnprocessedForCount(r)).length,
     [RELICS, isUnprocessedForCount]
   );
+  const magicNoAptitudeUnresolvedCount = useMemo(
+    () => RELICS.filter((r) => hasMagicNoAptitudeCombo(r) && isUnprocessedForCount(r)).length,
+    [RELICS, isUnprocessedForCount]
+  );
+  const prayerNoAptitudeUnresolvedCount = useMemo(
+    () => RELICS.filter((r) => hasPrayerNoAptitudeCombo(r) && isUnprocessedForCount(r)).length,
+    [RELICS, isUnprocessedForCount]
+  );
   const partialUnresolvedCount = useMemo(
     () => RELICS.filter((r) => isPartialOnlyDominated(r) && isUnprocessedForCount(r)).length,
     [RELICS, isPartialOnlyDominated, isUnprocessedForCount]
   );
   const pendingCount = useMemo(
     () => RELICS.filter((r) => reviewStatus[r.id] === "pending").length,
+    [RELICS, reviewStatus]
+  );
+  const neededCount = useMemo(
+    () => RELICS.filter((r) => reviewStatus[r.id] === "needed").length,
     [RELICS, reviewStatus]
   );
 
@@ -2236,8 +2312,11 @@ function foldGenericLayers(rows) {
       if (sellCandidateFilter && (r.sell || reviewStatus[r.id] === "needed" || reviewStatus[r.id] === "pending")) return false;
       if (sellCandidateFilter === "complete" && !isCompleteDominated(r)) return false;
       if (sellCandidateFilter === "charMismatch" && !hasCharMismatchCombo(r)) return false;
+      if (sellCandidateFilter === "magicNoAptitude" && !hasMagicNoAptitudeCombo(r)) return false;
+      if (sellCandidateFilter === "prayerNoAptitude" && !hasPrayerNoAptitudeCombo(r)) return false;
       if (sellCandidateFilter === "partial" && !isPartialOnlyDominated(r)) return false;
       if (showPendingOnly && reviewStatus[r.id] !== "pending") return false;
+      if (showNeededOnly && reviewStatus[r.id] !== "needed") return false;
       if (importanceMin !== "" && relicImportanceMap.get(r.id) < Number(importanceMin)) return false;
       if (importanceMax !== "" && relicImportanceMap.get(r.id) > Number(importanceMax)) return false;
       if (selectedEffects.length) {
@@ -2268,7 +2347,7 @@ function foldGenericLayers(rows) {
       list = [...list].sort((a, b) => tierOf(a) - tierOf(b) || (relicImportanceMap.get(a.id) - relicImportanceMap.get(b.id)));
     }
     return list;
-  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, isPartialOnlyDominated, showPendingOnly, reviewStatus, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
+  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, isPartialOnlyDominated, showPendingOnly, showNeededOnly, reviewStatus, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
 
   // 「固有」が色フィルタに含まれている時だけ、未所持の固有遺物を「幽霊カード」として一覧の末尾に追加する。
   // RELICSには一切加えないため、審査・売却判定・重要度計算・ビルドの対象には一切ならない。
@@ -2588,11 +2667,16 @@ function foldGenericLayers(rows) {
           >
             <option value="">売却候補で絞り込む ▾</option>
             <option value="complete">売却候補：完全上位互換（{completeUnresolvedCount.toLocaleString()}件）</option>
-            <option value="charMismatch">売却候補：キャラ不適合の戦技変更（{charMismatchUnresolvedCount.toLocaleString()}件）</option>
+            <option value="charMismatch">売却候補：キャラ不適合の出撃時変更（{charMismatchUnresolvedCount.toLocaleString()}件）</option>
+            <option value="magicNoAptitude">売却候補：魔術適性なし（{magicNoAptitudeUnresolvedCount.toLocaleString()}件）</option>
+            <option value="prayerNoAptitude">売却候補：祈祷適性なし（{prayerNoAptitudeUnresolvedCount.toLocaleString()}件）</option>
             <option value="partial">売却候補：その他上位互換（{partialUnresolvedCount.toLocaleString()}件、精度に注意）</option>
           </select>
           <Chip active={showPendingOnly} onClick={() => setShowPendingOnly((v) => !v)} colorRing="#7FA9C9">
             保留のみ（{pendingCount.toLocaleString()}件）
+          </Chip>
+          <Chip active={showNeededOnly} onClick={() => setShowNeededOnly((v) => !v)} colorRing="#8FC49A">
+            必要のみ（{neededCount.toLocaleString()}件）
           </Chip>
           <Chip active={sellOnly} onClick={() => setSellOnly((v) => !v)} colorRing="#B4553A">
             <Trash2 size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
