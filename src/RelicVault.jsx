@@ -379,6 +379,15 @@ function formatRowSkillsForReview(row) {
   return parts.length ? parts.join(" ／ ") : "（スキルなし）";
 }
 
+// 審査パネル用：パース済みの遺物オブジェクトのスキルを、同じ「スキル1（デメリット）／スキル2…」の形で読める文字列にする
+function formatRelicSkillsForReview(relic) {
+  const parts = relic.skills.map((s) => {
+    const skillText = s.numeric ? `${s.numeric.base}${s.numeric.value > 0 ? `+${s.numeric.value}` : ""}` : s.text;
+    return s.demerit ? `${skillText}（－${s.demerit}）` : skillText;
+  });
+  return parts.length ? parts.join(" ／ ") : "（スキルなし）";
+}
+
 function syncOcrImport(ocrRows, currentRawData) {
   const sigOf = (row) => computeSignature(row[0], row[1], row[2], row[3], row[4], row[5], row[6]);
   const hasInfo = (row) => (row[8] && String(row[8]).trim()) || row[9] === true || row[10] === true;
@@ -1758,9 +1767,27 @@ export default function RelicVault() {
     if (!reviewRelicId) return null;
     const relic = relicById.get(reviewRelicId);
     if (!relic) return null;
+
+    // 完全上位互換に該当する場合：スキル単位の確認は不要。上回っている遺物（内容が異なるものだけ）を一覧で見せる
+    const supersededBy = dominanceMap.get(relic.id);
+    const fullDominators = supersededBy ? supersededBy.filter((s) => s.type === "full") : [];
+    if (fullDominators.length > 0) {
+      const seen = new Set();
+      const distinctDominators = [];
+      fullDominators.forEach((d) => {
+        const dr = relicById.get(d.id);
+        if (!dr) return;
+        const sig = formatRelicSkillsForReview(dr);
+        if (seen.has(sig)) return;
+        seen.add(sig);
+        distinctDominators.push({ relic: dr, skillsText: sig });
+      });
+      return { relic, isComplete: true, distinctDominators, otherSkills: [] };
+    }
+
     // カードから直接「審査」を始めるので、アンカー除外はせず全スキルを1つずつ確認する
     const otherSkills = relic.skills;
-    if (otherSkills.length === 0) return { relic, otherSkills: [], currentSkill: null, alternatives: [] };
+    if (otherSkills.length === 0) return { relic, isComplete: false, otherSkills: [], currentSkill: null, alternatives: [] };
     const idx = Math.min(reviewSkillIndex, otherSkills.length - 1);
     const currentSkill = otherSkills[idx];
     const currentBase = currentSkill.numeric ? currentSkill.numeric.base : currentSkill.text;
@@ -1781,8 +1808,8 @@ export default function RelicVault() {
       const vb = tb && tb.numeric ? tb.numeric.value : 0;
       return vb - va;
     }).slice(0, 5);
-    return { relic, otherSkills, idx, currentSkill, currentBase, alternatives };
-  }, [reviewRelicId, reviewSkillIndex, relicById, RELICS]);
+    return { relic, isComplete: false, otherSkills, idx, currentSkill, currentBase, alternatives };
+  }, [reviewRelicId, reviewSkillIndex, relicById, RELICS, dominanceMap]);
 
   // 遺物ごとの合計重要度（スキル単体重要度の合計。ユーザー調整があればそちらを優先）
   const relicImportanceMap = useMemo(() => {
@@ -2970,16 +2997,29 @@ function foldGenericLayers(rows) {
 
                   {dominanceMap.has(r.id) && (() => {
                     const supersede = dominanceMap.get(r.id);
-                    const hasFull = supersede.some((x) => x.type === "full");
-                    const label = hasFull ? "完全上位互換あり。" : "上位互換あり";
-                    const shown = supersede.slice(0, 2).map((x) => {
+                    const fullOnes = supersede.filter((x) => x.type === "full");
+                    const hasFull = fullOnes.length > 0;
+                    // 完全上位互換に該当する場合は、完全支配の相手だけを見せる（部分支配の情報は混ぜない）
+                    // 該当しない場合（その他上位互換のみ）は、部分支配の相手を見せる
+                    const shownSource = hasFull ? fullOnes : supersede;
+                    // 内容が同一のものは重複排除する（審査パネルと同じ考え方）
+                    const seen = new Set();
+                    const distinct = [];
+                    shownSource.forEach((x) => {
+                      const sig = x.skills.join("／");
+                      if (seen.has(sig)) return;
+                      seen.add(sig);
+                      distinct.push(x);
+                    });
+                    const label = hasFull ? "完全上位互換あり。" : "上位互換あり（その他上位互換・精度に注意）";
+                    const shown = distinct.slice(0, 2).map((x) => {
                       const skillsText = x.skills.join("／");
                       return x.type === "partial" ? `[${skillsText}]（部分）` : `[${skillsText}]`;
                     }).join("、");
-                    const more = supersede.length - 2;
+                    const more = distinct.length - 2;
                     return (
                       <div className="dominance-badge">
-                        ⚠ {label}：{shown}{more > 0 ? ` 他${more}件` : ""}
+                        ⚠ {label}：{shown}{more > 0 ? ` 他${more}件（内容の異なるもの）` : ""}
                       </div>
                     );
                   })()}
@@ -3020,7 +3060,21 @@ function foldGenericLayers(rows) {
 
                   {isReviewing && reviewData && (
                     <div className="review-panel-inline">
-                      {reviewData.otherSkills.length === 0 ? (
+                      {reviewData.isComplete ? (
+                        <>
+                          <div className="review-panel-skill">
+                            この遺物は完全上位互換されています。個別スキルの確認は不要です。
+                          </div>
+                          <div className="chalice-note" style={{ marginBottom: 6 }}>
+                            上回っている遺物（内容が異なるもの{reviewData.distinctDominators.length}件）：
+                          </div>
+                          <ul className="review-panel-list">
+                            {reviewData.distinctDominators.map((d) => (
+                              <li key={d.relic.id}>{d.relic.name}：{d.skillsText}</li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : reviewData.otherSkills.length === 0 ? (
                         <div className="chalice-note">この遺物には審査対象のスキルがありません。</div>
                       ) : (
                         <>
