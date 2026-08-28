@@ -2214,7 +2214,7 @@ function foldGenericLayers(rows) {
     let list = RELICS.filter((r) => {
       // フィルタは「何も選択されていない＝すべて表示」。ONにしたものだけに絞り込む
       if (slotFilter.size > 0 && !slotFilter.has(r.effectiveSlot > 3 ? 3 : r.effectiveSlot)) return false;
-      if (colorFilter.size > 0 && !colorFilter.has(r.effectiveColor)) return false;
+      if (colorFilter.size > 0 && !(colorFilter.has(r.effectiveColor) || (colorFilter.has("固有") && r.special))) return false;
       if (depthFilter.size > 0 && !r.special && !depthFilter.has(r.depth)) return false;
       if (favOnly && !r.fav) return false;
       if (sellOnly && !r.sell) return false;
@@ -2255,7 +2255,17 @@ function foldGenericLayers(rows) {
     return list;
   }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, isPartialOnlyDominated, showPendingOnly, reviewStatus, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
 
-  const visible = filtered.slice(0, visibleCount);
+  // 「固有」が色フィルタに含まれている時だけ、未所持の固有遺物を「幽霊カード」として一覧の末尾に追加する。
+  // RELICSには一切加えないため、審査・売却判定・重要度計算・ビルドの対象には一切ならない。
+  const ghostSpecialCards = useMemo(() => {
+    if (!colorFilter.has("固有")) return [];
+    const ownedNames = new Set(RELICS.map((r) => r.name));
+    return Object.entries(SPECIAL_ITEMS_DB)
+      .filter(([name]) => !ownedNames.has(name))
+      .map(([name, info]) => ({ __ghost: true, id: `ghost-${name}`, name, effectiveColor: info.color, skills: info.skills }));
+  }, [colorFilter, RELICS]);
+
+  const visible = [...filtered.slice(0, visibleCount), ...ghostSpecialCards];
   const statBaseOptions = statCategory === "demerit" ? DEMERIT_BASES : (statCategory !== "none" ? NUMERIC_BASES[statCategory] : []);
   const statBaseHasPercent = statCategory !== "none" && statCategory !== "demerit" && statBase !== "all" && !!PERCENT_MAP[statBase];
 
@@ -2536,7 +2546,7 @@ function foldGenericLayers(rows) {
             お気に入り
           </Chip>
           <select
-            className="select-input sell-candidate-select"
+            className={`select-input sell-candidate-select${sellCandidateFilter ? " active" : ""}`}
             value={sellCandidateFilter}
             onChange={(e) => setSellCandidateFilter(e.target.value)}
           >
@@ -2877,6 +2887,20 @@ function foldGenericLayers(rows) {
           </div>
         )}
         {visible.map((r) => {
+          if (r.__ghost) {
+            const gcs = COLOR_STYLE[r.effectiveColor] || COLOR_STYLE["固有"];
+            return (
+              <article key={r.id} className="card ghost-card" style={{ boxShadow: `inset 3px 0 0 ${gcs.ring}` }}>
+                <div className="ghost-card-badge">未所持</div>
+                <div className="card-name" style={{ color: gcs.fg }}>{r.name}</div>
+                <ul className="skill-list">
+                  {r.skills.map((s, i) => (
+                    <li key={i}><span className="skill-text">{s}</span></li>
+                  ))}
+                </ul>
+              </article>
+            );
+          }
           const cs = COLOR_STYLE[r.effectiveColor] || COLOR_STYLE["固有"];
           const isReviewing = reviewRelicId === r.id;
           return (
@@ -3260,8 +3284,12 @@ const GLOBAL_CSS = `
 }
 .select-input:disabled { color: #4A4636; }
 .select-input.sell-candidate-select {
-  border-color: #B4553A;
+  border-color: #3A322A;
   max-width: 100%;
+}
+.select-input.sell-candidate-select.active {
+  border-color: #B4553A;
+  color: #F0D8D2;
 }
 .number-input {
   font-family: 'Zen Kaku Gothic New', sans-serif;
@@ -3996,6 +4024,30 @@ const GLOBAL_CSS = `
   display: flex;
   flex-direction: column;
   position: relative;
+}
+.card.ghost-card {
+  background: #EFE8D8;
+  border: 1px solid #D9CFB4;
+  padding: 14px 16px 18px;
+}
+.card.ghost-card .card-name {
+  filter: brightness(0.7);
+}
+.card.ghost-card .skill-text {
+  color: #4A4030;
+}
+.ghost-card-badge {
+  display: inline-block;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6E6350;
+  background: rgba(0,0,0,0.08);
+  border: 1px solid #B9AD91;
+  border-radius: 5px;
+  padding: 2px 8px;
+  margin-bottom: 8px;
+  align-self: flex-start;
 }
 .card-top {
   display: flex;
