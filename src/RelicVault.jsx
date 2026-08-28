@@ -1592,8 +1592,15 @@ function RelicVaultInner() {
         Object.entries(prev).forEach(([charName, byChalice]) => {
           const nextByChalice = {};
           Object.entries(byChalice).forEach(([chaliceLabel, list]) => {
+            // TEMP FIX (2026-08-28): 壊れた/旧形式のビルドデータが混在していても、
+            // 遺物削除時の list.map() で画面全体がクラッシュしないようにする。
+            // 配列でないデータは変更せず、そのまま保持する。
+            if (!Array.isArray(list)) {
+              nextByChalice[chaliceLabel] = list;
+              return;
+            }
             nextByChalice[chaliceLabel] = list.map((b) => {
-              if (!b.slots.includes(id)) return b;
+              if (!Array.isArray(b?.slots) || !b.slots.includes(id)) return b;
               changed = true;
               return { ...b, slots: b.slots.map((s) => (s === id ? null : s)) };
             });
