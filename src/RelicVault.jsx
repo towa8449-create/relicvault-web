@@ -1136,7 +1136,7 @@ function jstTimestamp() {
   return `${y}-${mo}-${d}_${h}${mi}`;
 }
 
-export default function RelicVault() {
+function RelicVaultInner() {
   const [slotFilter, setSlotFilter] = useState(new Set());
   const [colorFilter, setColorFilter] = useState(new Set());
   const [depthFilter, setDepthFilter] = useState(new Set());
@@ -1604,6 +1604,7 @@ export default function RelicVault() {
         return changed ? updated : prev;
       });
       if (editingId === id) { setEditingId(null); setEditDraft(null); }
+      if (reviewRelicId === id) { setReviewRelicId(null); setReviewSkillIndex(0); }
     });
   };
 
@@ -1741,17 +1742,22 @@ export default function RelicVault() {
     return !!s && !s.some((x) => x.type === "full");
   }, [dominanceMap]);
   // 各売却候補フィルタの「未処理（必要フラグが付いていない）」件数：ドロップダウンの進捗表示に使う
+  // 未処理＝「必要」フラグ済みでも「保留」でも「売却フラグ済み」でもないもの
+  const isUnprocessedForCount = useCallback(
+    (r) => !r.sell && reviewStatus[r.id] !== "needed" && reviewStatus[r.id] !== "pending",
+    [reviewStatus]
+  );
   const completeUnresolvedCount = useMemo(
-    () => RELICS.filter((r) => isCompleteDominated(r) && reviewStatus[r.id] !== "needed").length,
-    [RELICS, isCompleteDominated, reviewStatus]
+    () => RELICS.filter((r) => isCompleteDominated(r) && isUnprocessedForCount(r)).length,
+    [RELICS, isCompleteDominated, isUnprocessedForCount]
   );
   const charMismatchUnresolvedCount = useMemo(
-    () => RELICS.filter((r) => hasCharMismatchCombo(r) && reviewStatus[r.id] !== "needed").length,
-    [RELICS, reviewStatus]
+    () => RELICS.filter((r) => hasCharMismatchCombo(r) && isUnprocessedForCount(r)).length,
+    [RELICS, isUnprocessedForCount]
   );
   const partialUnresolvedCount = useMemo(
-    () => RELICS.filter((r) => isPartialOnlyDominated(r) && reviewStatus[r.id] !== "needed").length,
-    [RELICS, isPartialOnlyDominated, reviewStatus]
+    () => RELICS.filter((r) => isPartialOnlyDominated(r) && isUnprocessedForCount(r)).length,
+    [RELICS, isPartialOnlyDominated, isUnprocessedForCount]
   );
   const pendingCount = useMemo(
     () => RELICS.filter((r) => reviewStatus[r.id] === "pending").length,
@@ -2220,7 +2226,7 @@ function foldGenericLayers(rows) {
       if (depthFilter.size > 0 && !r.special && !depthFilter.has(r.depth)) return false;
       if (favOnly && !r.fav) return false;
       if (sellOnly && !r.sell) return false;
-      if (sellCandidateFilter && reviewStatus[r.id] === "needed") return false;
+      if (sellCandidateFilter && (r.sell || reviewStatus[r.id] === "needed" || reviewStatus[r.id] === "pending")) return false;
       if (sellCandidateFilter === "complete" && !isCompleteDominated(r)) return false;
       if (sellCandidateFilter === "charMismatch" && !hasCharMismatchCombo(r)) return false;
       if (sellCandidateFilter === "partial" && !isPartialOnlyDominated(r)) return false;
@@ -3196,6 +3202,59 @@ function foldGenericLayers(rows) {
         </div>
       )}
     </div>
+  );
+}
+
+// 描画中に予期しないエラーが起きても、画面が真っ白になったまま固まるのではなく、
+// エラー内容とリロード導線を見せる（データ自体は各操作のたびに保存済みなので失われない）
+class RelicVaultErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error("RelicVault rendering error:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          minHeight: "100vh", background: "#16130F", color: "#E8DFC9",
+          fontFamily: "'Zen Kaku Gothic New', sans-serif", padding: "24px",
+          display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start",
+        }}>
+          <div style={{ fontSize: "16px", fontWeight: 700 }}>画面の表示中にエラーが発生しました</div>
+          <div style={{ fontSize: "12.5px", color: "#B7AD94", maxWidth: "600px" }}>
+            データはこれまでの操作のたびに保存されているため、失われていません。ページを再読み込みしてください。
+          </div>
+          <div style={{ fontSize: "11px", color: "#6E6350", maxWidth: "600px", wordBreak: "break-word" }}>
+            {String(this.state.error && this.state.error.message)}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: "13px",
+              background: "rgba(185,151,74,0.12)", border: "1px solid #B9974A", color: "#EFE6CC",
+              padding: "8px 16px", borderRadius: "6px", cursor: "pointer",
+            }}
+          >
+            ページを再読み込み
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function RelicVault() {
+  return (
+    <RelicVaultErrorBoundary>
+      <RelicVaultInner />
+    </RelicVaultErrorBoundary>
   );
 }
 
