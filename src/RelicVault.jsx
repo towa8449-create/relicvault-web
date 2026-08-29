@@ -1597,11 +1597,11 @@ function RelicVaultInner() {
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [showNeededOnly, setShowNeededOnly] = useState(false);
 
-  // ビルド提案エンジン（試作）：ビルド要件の保存・編集・提案結果
-  const [buildRequirements, setBuildRequirements] = useState([]); // [{id,name,char,chaliceLabel,musts,stackable,nice,exclude,tieLog}]
-  const [showBuildProposal, setShowBuildProposal] = useState(false);
+  // ビルド提案エンジン：ビルド要件の保存・編集・提案結果
+  const [buildRequirements, setBuildRequirements] = useState([]); // [{id,name,musts,stackable,nice,exclude,tieLog}]
   const [editingReqId, setEditingReqId] = useState(null); // null=新規作成フォーム非表示
   const [reqDraft, setReqDraft] = useState(null); // 編集中のドラフト
+  const [selectedRequirementId, setSelectedRequirementId] = useState(null); // 「盃からビルドを組む」で選択中のルール
   const [proposalResult, setProposalResult] = useState(null); // {reqId, result}
   const [tieChoiceIndex, setTieChoiceIndex] = useState(0);
 
@@ -1637,7 +1637,7 @@ function RelicVaultInner() {
   /* ビルド枠（盃に実際に遺物を置く）：キャラ×盃ごとに、名前付きビルドを最大5個保持する */
   const [builds, setBuilds] = useState({}); // { [charName]: { [chaliceName]: [ {id,name,colors:[6],depths:[6],slots:[id|null×6]}, ... 最大5 ] } }
   const buildList = (chaliceChar && chaliceName && builds[chaliceChar] && builds[chaliceChar][chaliceName]) || [];
-  const build = buildList.find((b) => b.id === activeBuildId) || null;
+  // 「build」の実体定義は、proposalBuildObject等の定義後（このファイル下方）にあります
 
   /* 数値効果フィルタ */
   const [statCategory, setStatCategory] = useState("none"); // none | attack | stat | other | demerit
@@ -2214,16 +2214,6 @@ function RelicVaultInner() {
   const MASTER_EFFECT_OPTIONS_BUILD = useMemo(() => buildMasterEffectOptions(RELICS, true), [RELICS]);
   const DEMERIT_OPTIONS_BUILD = useMemo(() => buildDemeritOptions(RELICS), [RELICS]);
 
-  // 自動生成の効果選択肢：マスター一覧(Excel)全件から、今のキャラで実際に効果を発揮するものだけに絞る
-  // （所持していないスキルも選択肢に出す。自動生成時に該当遺物が無ければそのスロットは空欄のまま）
-  const [autoFillTarget, setAutoFillTarget] = useState("");
-
-  const autoFillOptions = useMemo(() => {
-    if (!chaliceChar) return [];
-    return MASTER_EFFECT_OPTIONS.filter((o) => isSkillUsableByChar(o.value.slice(2), chaliceChar));
-  }, [MASTER_EFFECT_OPTIONS, chaliceChar]);
-
-
   const { map: dominanceMap, protectionReasons } = useMemo(() => buildDominanceMap(RELICS, importanceOverrides), [RELICS, importanceOverrides]);
   // 完全上位互換かどうか（supersededByの中にtype==="full"が1つでもあるか）
   const isCompleteDominated = useCallback((r) => {
@@ -2337,6 +2327,67 @@ function RelicVaultInner() {
 
   const [buildWarning, setBuildWarning] = useState("");
 
+  const selectedRequirement = buildRequirements.find((r) => r.id === selectedRequirementId) || null;
+
+  // ビルド提案：選択中のルール×今のキャラ・盃で提案を実行する
+  const runSelectedProposal = useCallback(() => {
+    if (!chaliceChar || !chaliceName || !selectedRequirement) return;
+    const entry = getChaliceEntry(chaliceChar, chaliceName);
+    if (!entry) return;
+    const [, normalSlots, deepSlots] = entry;
+    const result = buildProposal({ ...selectedRequirement, chaliceColors: normalSlots, chaliceDepths: deepSlots }, RELICS);
+    setProposalResult({ reqId: selectedRequirement.id, result });
+    setTieChoiceIndex(0);
+    setActiveBuildId("__proposal__");
+  }, [chaliceChar, chaliceName, selectedRequirement, RELICS]);
+
+  // 提案結果（現在選んでいる候補）を、保存済みビルドと同じ形（colors/depths/slots）に変換する
+  const proposalBuildObject = useMemo(() => {
+    if (!proposalResult || !proposalResult.result.ok || !chaliceChar || !chaliceName) return null;
+    const entry = getChaliceEntry(chaliceChar, chaliceName);
+    if (!entry) return null;
+    const [, normalSlots, deepSlots] = entry;
+    const req = buildRequirements.find((r) => r.id === proposalResult.reqId);
+    if (!req) return null;
+    const { result } = proposalResult;
+    const combos = result.best.combos;
+    const chosen = combos[Math.min(tieChoiceIndex, combos.length - 1)];
+    const { assign, combo } = chosen;
+    const { filled } = fillRemainingSlots(assign, combo, result.musts, result.stackable, result.nice, result.usable, result.slots);
+    const slotIds = new Array(6).fill(null);
+    assign.forEach((si, i) => { slotIds[result.slots[si].slotIndex] = combo[i].id; });
+    filled.forEach((f) => { slotIds[result.slots[f.slotIdx].slotIndex] = f.relic.id; });
+    return {
+      id: "__proposal__",
+      name: req.name,
+      colors: [...normalSlots, ...deepSlots],
+      depths: ["景色", "景色", "景色", "昏景", "昏景", "昏景"],
+      slots: slotIds,
+    };
+  }, [proposalResult, tieChoiceIndex, chaliceChar, chaliceName, buildRequirements]);
+
+  // 提案を確定：保存済みビルドの1つとして追加し、提案表示は消す
+  const confirmProposal = useCallback(() => {
+    if (!proposalBuildObject) return;
+    if (buildList.length >= MAX_BUILDS_PER_CHALICE) {
+      setBuildWarning(`1つの盃につきビルドは最大${MAX_BUILDS_PER_CHALICE}個までです。`);
+      return;
+    }
+    const newBuild = {
+      id: genId(),
+      name: proposalBuildObject.name,
+      colors: proposalBuildObject.colors,
+      depths: proposalBuildObject.depths,
+      slots: proposalBuildObject.slots,
+    };
+    persistBuildList(chaliceChar, chaliceName, [...buildList, newBuild]);
+    setProposalResult(null);
+    setActiveBuildId(newBuild.id);
+    setBuildWarning("");
+  }, [proposalBuildObject, buildList, chaliceChar, chaliceName]);
+
+  const build = activeBuildId === "__proposal__" ? proposalBuildObject : (buildList.find((b) => b.id === activeBuildId) || null);
+
   const addSelectedEffect = useCallback((value) => {
     const opt = EFFECT_OPTIONS.find((o) => o.value === value);
     if (!opt) return;
@@ -2370,126 +2421,6 @@ function RelicVaultInner() {
     setBuildWarning("");
   };
 
-  // 指定した効果（スキル基礎名）に対する、その遺物の最大貢献値を数値化する
-  const effectContribution = (relic, targetBase) => {
-    let best = 0;
-    relic.skills.forEach((s) => {
-      const key = s.numeric ? s.numeric.base : s.text;
-      if (key !== targetBase) return;
-      const pct = s.numeric ? getPercent(s.numeric.base, s.numeric.value, relic.depth) : null;
-      const val = pct && pct.value !== null ? pct.value : (s.numeric ? s.numeric.value : 1);
-      if (val > best) best = val;
-    });
-    return best;
-  };
-
-  const relicHasSkillKey = (relic, key) => relic.skills.some((s) => (s.numeric ? s.numeric.base : s.text) === key);
-  const relicHasCategory = (relic, category) =>
-    relic.skills.some((s) => weaponChangeCategory(s.numeric ? s.numeric.base : s.text) === category);
-
-  // 6スロット分の空き枠だけを、指定効果への貢献が高い順に貪欲法で埋める。
-  // ・同一スキル名が重ね掛け不可な場合は1つ置いたらそれ以上は置かない
-  // ・初期戦技/魔術/祈祷変更は「左側のスロットが優先され右は無効」になるため、
-  //   　既に左側に同カテゴリの効果がある場合はそれより右には置かない（1つ置けば十分）
-  function greedyFillSlots(colors, depths, initialSlots, targetBase, category, stackable) {
-    const usedIds = new Set(initialSlots.filter(Boolean));
-    const nextSlots = [...initialSlots];
-    const alreadyHasTarget = initialSlots.some((id) => id && relicHasSkillKey(relicById.get(id), targetBase));
-    const earliestCategoryIndex = category
-      ? initialSlots.findIndex((id) => id && relicById.get(id) && relicHasCategory(relicById.get(id), category))
-      : -1;
-    let placedNew = false;
-    if ((!stackable && alreadyHasTarget) || (category && earliestCategoryIndex !== -1)) {
-      return { slots: nextSlots, placed: false, blocked: true };
-    }
-    for (let i = 0; i < nextSlots.length; i++) {
-      if (nextSlots[i]) continue;
-      if (!stackable && (alreadyHasTarget || placedNew)) break; // 重ね掛け不可なら1つで十分
-      if (category && placedNew) break; // カテゴリ系も1つ置けば十分（右側は無効になるため）
-      let bestRelic = null, bestVal = 0;
-      RELICS.forEach((r) => {
-        if (r.sell || usedIds.has(r.id)) return;
-        if (colors[i] !== "無" && colors[i] !== r.effectiveColor) return;
-        if (!r.special && r.depth !== depths[i]) return;
-        const val = effectContribution(r, targetBase);
-        if (val > bestVal) { bestVal = val; bestRelic = r; }
-      });
-      if (bestRelic) {
-        nextSlots[i] = bestRelic.id;
-        usedIds.add(bestRelic.id);
-        placedNew = true;
-      }
-    }
-    return { slots: nextSlots, placed: placedNew, blocked: false };
-  }
-
-  // 貪欲法による自動ビルド生成：今選んでいるビルドの空き枠だけを埋める（手動セット済みの枠はそのまま）
-  const autoFillBuild = (targetIdentity) => {
-    if (!build || !targetIdentity) return;
-    if (!targetIdentity.startsWith("N:")) {
-      setBuildWarning("この効果は数値化できないため、自動生成の対象にできません。");
-      return;
-    }
-    const targetBase = targetIdentity.slice(2);
-    const category = weaponChangeCategory(targetBase);
-    const entry = lookupEffectEntry(targetBase);
-    const stackable = entry ? entry.stackable !== false : true;
-
-    const result = greedyFillSlots(build.colors, build.depths, build.slots, targetBase, category, stackable);
-    if (result.blocked) {
-      setBuildWarning("このスキルは既にこのビルド内で発動済みのため、追加のセットは行いませんでした。");
-      return;
-    }
-    if (!result.placed) {
-      setBuildWarning("条件に合う空き枠・遺物が見つかりませんでした。");
-      return;
-    }
-    persistBuild(chaliceChar, chaliceName, build.id, (b) => ({ ...b, slots: result.slots }));
-    setBuildWarning("");
-  };
-
-  // 盃も含めて自動選択する：そのキャラが使える全ての盃を試し、指定効果を一番伸ばせる盃でビルドを新規作成する
-  const autoBuildAcrossChalices = (targetIdentity) => {
-    if (!chaliceChar || !targetIdentity || !targetIdentity.startsWith("N:")) return;
-    const targetBase = targetIdentity.slice(2);
-    const category = weaponChangeCategory(targetBase);
-    const entry = lookupEffectEntry(targetBase);
-    const stackable = entry ? entry.stackable !== false : true;
-
-    const chaliceOptions = [...(CHALICES2[chaliceChar] || []), ...(CHALICES2["共通"] || [])];
-    let best = null; // { name, colors, depths, slots, score }
-    chaliceOptions.forEach(([name, normalSlots, deepSlots]) => {
-      const colors = [...normalSlots, ...deepSlots];
-      const depths = ["景色", "景色", "景色", "昏景", "昏景", "昏景"];
-      const result = greedyFillSlots(colors, depths, [null, null, null, null, null, null], targetBase, category, stackable);
-      const score = result.slots.reduce((sum, id) => (id ? sum + effectContribution(relicById.get(id), targetBase) : sum), 0);
-      if (score > 0 && (!best || score > best.score)) {
-        best = { name, colors, depths, slots: result.slots, score };
-      }
-    });
-
-    if (!best) {
-      setBuildWarning("この効果を伸ばせる盃・遺物の組み合わせが見つかりませんでした。");
-      return;
-    }
-    const existingList = (builds[chaliceChar] && builds[chaliceChar][best.name]) || [];
-    if (existingList.length >= MAX_BUILDS_PER_CHALICE) {
-      setBuildWarning(`一番良さそうな盃「${best.name}」は既にビルドが${MAX_BUILDS_PER_CHALICE}個あるため、新規作成できませんでした。その盃を開いて空きを作ってから再度お試しください。`);
-      return;
-    }
-    const newBuild = {
-      id: genId(),
-      name: `自動生成：${targetBase.slice(0, 12)}`,
-      colors: best.colors,
-      depths: best.depths,
-      slots: best.slots,
-    };
-    persistBuildList(chaliceChar, best.name, [...existingList, newBuild]);
-    setChaliceName(best.name);
-    setActiveBuildId(newBuild.id);
-    applyChaliceFilter(chaliceChar, best.name);
-    setBuildWarning("");
-  };
 
   // ビルドにセット中の遺物から数値効果（％等）を集計する
   // ビルド内で各スロット・各スキルが実際に発動するか（左スロット優先・キャラ一致・重ね掛け可否を考慮）
@@ -3048,32 +2979,6 @@ function foldGenericLayers(rows) {
         </div>
       )}
 
-      <div className="chalice-bar">
-        <div className="panel-title">
-          <button className="build-toggle-btn" onClick={() => setShowBuildProposal((v) => !v)}>
-            {showBuildProposal ? "ビルド提案を閉じる ▲" : "ビルド提案（試作） ▾"}
-          </button>
-        </div>
-        {showBuildProposal && (
-          <BuildProposalPanel
-            buildRequirements={buildRequirements}
-            setBuildRequirementsPersist={setBuildRequirementsPersist}
-            editingReqId={editingReqId}
-            setEditingReqId={setEditingReqId}
-            reqDraft={reqDraft}
-            setReqDraft={setReqDraft}
-            proposalResult={proposalResult}
-            setProposalResult={setProposalResult}
-            tieChoiceIndex={tieChoiceIndex}
-            setTieChoiceIndex={setTieChoiceIndex}
-            MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS_BUILD}
-            DEMERIT_OPTIONS_BUILD={DEMERIT_OPTIONS_BUILD}
-            RELICS={RELICS}
-            askConfirm={askConfirm}
-          />
-        )}
-      </div>
-
       <div className="filter-bar">
         <div className="filter-row">
           <span className="filter-label">スロット</span>
@@ -3217,26 +3122,43 @@ function foldGenericLayers(rows) {
         </div>
 
         {chaliceChar && (
-          <>
-            <div className="auto-fill-row">
-              <SearchableListbox
-                placeholder="スキル名で検索…"
-                buttonLabel={autoFillTarget ? (autoFillOptions.find((o) => o.value === autoFillTarget)?.label || "効果を選択…") : "自動生成する効果を選択…"}
-                onSelect={(v) => setAutoFillTarget(v)}
-                options={autoFillOptions.map((o) => ({ value: o.value, label: `${o.label}（所持${o.count}件）` }))}
-              />
-              <button
-                className="build-start-btn"
-                disabled={!autoFillTarget}
-                onClick={() => autoBuildAcrossChalices(autoFillTarget)}
-              >
-                盃も含めて自動選択・新規ビルド作成
+          <div className="filter-row" style={{ marginTop: 8 }}>
+            <SearchableListbox
+              placeholder="ルール名で検索…"
+              buttonLabel={selectedRequirement ? selectedRequirement.name : "ルールを選択…"}
+              onSelect={(v) => { if (v === "__new__") { setReqDraft(emptyReqDraft()); setEditingReqId("new"); } else setSelectedRequirementId(v); }}
+              options={[
+                { value: "__new__", label: "＋ 新しいルールを作る" },
+                ...buildRequirements.map((r) => ({ value: r.id, label: r.name })),
+              ]}
+            />
+            {selectedRequirement && (
+              <button className="card-edit-btn" onClick={() => { setReqDraft(JSON.parse(JSON.stringify(selectedRequirement))); setEditingReqId(selectedRequirement.id); }}>
+                編集
               </button>
-            </div>
-            <div className="chalice-note" style={{ marginTop: 0 }}>
-              選択肢は「{chaliceChar}」で実際に効果を発揮するスキルだけに絞っています（マスター一覧全件が対象、所持0件のものは自動生成時にそのスロットが空欄のまま残ります）。{chaliceChar}が使える盃の中から、この効果を一番伸ばせるものを自動で選んで新しいビルドを作ります。
-            </div>
-          </>
+            )}
+            <button
+              className="build-start-btn"
+              disabled={!chaliceChar || !chaliceName || !selectedRequirement}
+              onClick={runSelectedProposal}
+            >
+              提案する
+            </button>
+          </div>
+        )}
+
+        {editingReqId && (
+          <RuleEditorInline
+            reqDraft={reqDraft}
+            setReqDraft={setReqDraft}
+            buildRequirements={buildRequirements}
+            setBuildRequirementsPersist={setBuildRequirementsPersist}
+            setEditingReqId={setEditingReqId}
+            MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS_BUILD}
+            DEMERIT_OPTIONS_BUILD={DEMERIT_OPTIONS_BUILD}
+            askConfirm={askConfirm}
+            onSaved={(id) => setSelectedRequirementId(id)}
+          />
         )}
 
         {chaliceName && (() => {
@@ -3252,6 +3174,14 @@ function foldGenericLayers(rows) {
               </div>
 
               <div className="build-list-row">
+                {proposalBuildObject && (
+                  <button
+                    className={`build-tab proposal${activeBuildId === "__proposal__" ? " active" : ""}`}
+                    onClick={() => setActiveBuildId("__proposal__")}
+                  >
+                    提案中（{proposalBuildObject.slots.filter(Boolean).length}/6）
+                  </button>
+                )}
                 {buildList.map((b) => (
                   <button
                     key={b.id}
@@ -3276,29 +3206,52 @@ function foldGenericLayers(rows) {
 
         {build && (
           <div className="build-panel">
-            <div className="build-title">
-              <input
-                className="build-name-input"
-                defaultValue={build.name}
-                key={build.id}
-                onBlur={(e) => { if (e.target.value !== build.name) renameBuild(build.id, e.target.value); }}
-              />
-              <div className="build-title-actions">
-                <button className="build-clear-btn" onClick={() => duplicateBuild(build.id)}>複製</button>
-                <button className="build-clear-btn" onClick={clearBuildSlots}>空にする</button>
-                <button className="build-clear-btn danger" onClick={() => askConfirm(`「${build.name}」を削除します。よろしいですか？`, () => deleteBuild(build.id))}>削除</button>
+            {build.id === "__proposal__" ? (
+              <>
+                <div className="build-title">
+                  <div className="build-name-input" style={{ display: "flex", alignItems: "center" }}>提案中：{build.name}</div>
+                </div>
+                {proposalResult && proposalResult.result.ok && (
+                  <div className="chalice-note">
+                    {proposalResult.result.best.combos.length > 1 && (
+                      <>同じ良さの組み合わせが{proposalResult.result.best.combos.length}件あります。候補 {tieChoiceIndex + 1} / {proposalResult.result.best.combos.length}</>
+                    )}
+                    <div className="card-edit-row" style={{ marginTop: 4 }}>
+                      {tieChoiceIndex > 0 && (
+                        <button className="card-edit-btn" onClick={() => setTieChoiceIndex(tieChoiceIndex - 1)}>前の候補</button>
+                      )}
+                      {tieChoiceIndex < proposalResult.result.best.combos.length - 1 && (
+                        <button className="card-edit-btn" onClick={() => setTieChoiceIndex(tieChoiceIndex + 1)}>次の候補</button>
+                      )}
+                      <button className="build-start-btn" onClick={confirmProposal}>この候補で確定</button>
+                      <button className="card-edit-btn danger" onClick={() => { setProposalResult(null); setActiveBuildId(null); }}>提案を破棄</button>
+                    </div>
+                  </div>
+                )}
+                {proposalResult && !proposalResult.result.ok && (
+                  <div className="chalice-note" style={{ color: "#C08A7D" }}>
+                    提案できませんでした（{proposalResult.result.category}）：{proposalResult.result.reason}
+                    <div className="card-edit-row" style={{ marginTop: 4 }}>
+                      <button className="card-edit-btn danger" onClick={() => { setProposalResult(null); setActiveBuildId(null); }}>閉じる</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="build-title">
+                <input
+                  className="build-name-input"
+                  defaultValue={build.name}
+                  key={build.id}
+                  onBlur={(e) => { if (e.target.value !== build.name) renameBuild(build.id, e.target.value); }}
+                />
+                <div className="build-title-actions">
+                  <button className="build-clear-btn" onClick={() => duplicateBuild(build.id)}>複製</button>
+                  <button className="build-clear-btn" onClick={clearBuildSlots}>空にする</button>
+                  <button className="build-clear-btn danger" onClick={() => askConfirm(`「${build.name}」を削除します。よろしいですか？`, () => deleteBuild(build.id))}>削除</button>
+                </div>
               </div>
-            </div>
-
-            <div className="auto-fill-row">
-              <button
-                className="build-start-btn"
-                disabled={!autoFillTarget}
-                onClick={() => autoFillBuild(autoFillTarget)}
-              >
-                このビルドの空き枠だけを自動で埋める（{autoFillTarget ? autoFillOptions.find((o) => o.value === autoFillTarget)?.label || "" : "上で効果を選択してください"}）
-              </button>
-            </div>
+            )}
 
             {buildWarning && (
               <div className="build-warning">⚠ {buildWarning}</div>
@@ -3745,11 +3698,7 @@ function foldGenericLayers(rows) {
   );
 }
 
-// ビルド提案エンジンのUI（試作）
-function getChaliceEntryGlobal(charName, chaliceLabel) {
-  return (CHALICES2[charName] || []).find(([n]) => n === chaliceLabel) ||
-    (CHALICES2["共通"] || []).find(([n]) => n === chaliceLabel);
-}
+// ビルド提案エンジンのUI
 // 保存するのはルール（必須/重ね掛け/有ったら嬉しい/除外）のみ。キャラ・盃は提案の実行時に毎回選ぶ
 function emptyReqDraft() {
   return { id: null, name: "", musts: [], stackable: null, nice: [], exclude: [] };
@@ -3795,15 +3744,11 @@ function DepthAwareSkillAdder({ MASTER_EFFECT_OPTIONS, onAdd, label, eligibleFil
   );
 }
 
-function BuildProposalPanel({
-  buildRequirements, setBuildRequirementsPersist, editingReqId, setEditingReqId,
-  reqDraft, setReqDraft, proposalResult, setProposalResult, tieChoiceIndex, setTieChoiceIndex,
-  MASTER_EFFECT_OPTIONS, DEMERIT_OPTIONS_BUILD, RELICS, askConfirm,
+// ビルド提案のルール編集フォーム（一覧・提案実行は「盃からビルドを組む」側の行に統合済み）
+function RuleEditorInline({
+  reqDraft, setReqDraft, buildRequirements, setBuildRequirementsPersist, setEditingReqId,
+  MASTER_EFFECT_OPTIONS, DEMERIT_OPTIONS_BUILD, askConfirm, onSaved,
 }) {
-  const [proposalChalice, setProposalChalice] = useState({}); // {[reqId]: {char, chaliceLabel}}
-
-  const startNew = () => { setReqDraft(emptyReqDraft()); setEditingReqId("new"); };
-  const startEditReq = (req) => { setReqDraft(JSON.parse(JSON.stringify(req))); setEditingReqId(req.id); };
   const cancelEdit = () => { setReqDraft(null); setEditingReqId(null); };
 
   const saveReq = () => {
@@ -3814,217 +3759,100 @@ function BuildProposalPanel({
     setBuildRequirementsPersist(next);
     setReqDraft(null);
     setEditingReqId(null);
+    if (onSaved) onSaved(withId.id);
   };
 
-  const deleteReq = (id) => {
-    askConfirm("このビルド要件を削除します。よろしいですか？", () => {
-      setBuildRequirementsPersist(buildRequirements.filter((r) => r.id !== id));
-      if (proposalResult && proposalResult.reqId === id) setProposalResult(null);
+  const deleteReq = () => {
+    if (!reqDraft.id) { cancelEdit(); return; }
+    askConfirm("このルールを削除します。よろしいですか？", () => {
+      setBuildRequirementsPersist(buildRequirements.filter((r) => r.id !== reqDraft.id));
+      setReqDraft(null);
+      setEditingReqId(null);
     });
-  };
-
-  const runProposal = (req) => {
-    const chalice = proposalChalice[req.id];
-    if (!chalice || !chalice.chaliceLabel) return;
-    const entry = getChaliceEntryGlobal(chalice.char, chalice.chaliceLabel);
-    if (!entry) return;
-    const result = buildProposal({ ...req, chaliceColors: entry[1], chaliceDepths: entry[2] }, RELICS);
-    setProposalResult({ reqId: req.id, result });
-    setTieChoiceIndex(0);
   };
 
   // 必須/重ね掛け/有ったら嬉しい/除外、4枠全体を通して同じ遺物効果名の二重登録を防ぐ
   // 選択済み判定はbase＋depthHintの組み合わせ単位（「最大HP上昇（通常）」と「（深層）」は独立に扱う）
   const itemKey = (item) => (item.depthHint ? `${item.skill}#${item.depthHint}` : item.skill);
-  const usedBases = (draft) => new Set([
-    ...draft.musts.map(itemKey),
-    ...(draft.stackable ? [itemKey(draft.stackable)] : []),
-    ...draft.nice.map(itemKey),
-    ...draft.exclude.map(itemKey),
+  const disabled = new Set([
+    ...reqDraft.musts.map(itemKey),
+    ...(reqDraft.stackable ? [itemKey(reqDraft.stackable)] : []),
+    ...reqDraft.nice.map(itemKey),
+    ...reqDraft.exclude.map(itemKey),
   ]);
   // 戦技/魔術/祈祷/付加/探索は、左側優先で1つしか発動しないため、同じ枠を2つ以上登録できないようにする
-  const usedCategories = (draft) => new Set([
-    ...draft.musts.map((m) => m.skill),
-    ...(draft.stackable ? [draft.stackable.skill] : []),
-    ...draft.nice.map((n) => n.skill),
-    ...draft.exclude.map((e) => e.skill),
+  const disabledCats = new Set([
+    ...reqDraft.musts.map((m) => m.skill),
+    ...(reqDraft.stackable ? [reqDraft.stackable.skill] : []),
+    ...reqDraft.nice.map((n) => n.skill),
+    ...reqDraft.exclude.map((e) => e.skill),
   ].map((b) => weaponChangeCategory(b)).filter(Boolean));
 
-  if (editingReqId) {
-    const disabled = usedBases(reqDraft);
-    const disabledCats = usedCategories(reqDraft);
-    return (
-      <div className="review-panel-inline">
-        <div className="filter-row">
-          <input className="paste-textarea" style={{ minHeight: "auto", flex: 1 }} placeholder="ビルド名"
-            value={reqDraft.name} onChange={(e) => setReqDraft({ ...reqDraft, name: e.target.value })} />
-        </div>
-
-        <div className="review-panel-title" style={{ marginTop: 10 }}>必須（重ね掛け不可、複数選べます）</div>
-        {reqDraft.musts.map((m, i) => (
-          <div key={i} className="ocr-sync-old-row">
-            <span>{m.skill}{m.depthHint ? `（${m.depthHint}）` : ""}</span>
-            <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, musts: reqDraft.musts.filter((_, j) => j !== i) })}>削除</button>
-          </div>
-        ))}
-        <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="必須" eligibleFilter={isMustEligibleBase}
-          disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, musts: [...reqDraft.musts, item] })} />
-
-        <div className="review-panel-title" style={{ marginTop: 10 }}>重ね掛け枠（1種類のみ、あるだけ積む対象）</div>
-        {reqDraft.stackable ? (
-          <div className="ocr-sync-old-row">
-            <span>{reqDraft.stackable.skill}{reqDraft.stackable.depthHint ? `（${reqDraft.stackable.depthHint}）` : ""}</span>
-            <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, stackable: null })}>削除</button>
-          </div>
-        ) : (
-          <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="重ね掛け" eligibleFilter={isStackableEligibleBase}
-            disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, stackable: item })} />
-        )}
-
-        <div className="review-panel-title" style={{ marginTop: 10 }}>有ったら嬉しい（上から優先されます）</div>
-        {reqDraft.nice.map((n, i) => (
-          <div key={i} className="ocr-sync-old-row">
-            <span>#{i + 1} {n.skill}{n.depthHint ? `（${n.depthHint}）` : ""}</span>
-            <span>
-              {i > 0 && <button className="card-edit-btn" onClick={() => {
-                const arr = [...reqDraft.nice]; [arr[i-1], arr[i]] = [arr[i], arr[i-1]]; setReqDraft({ ...reqDraft, nice: arr });
-              }}>↑</button>}
-              {i < reqDraft.nice.length - 1 && <button className="card-edit-btn" onClick={() => {
-                const arr = [...reqDraft.nice]; [arr[i+1], arr[i]] = [arr[i], arr[i+1]]; setReqDraft({ ...reqDraft, nice: arr });
-              }}>↓</button>}
-              <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, nice: reqDraft.nice.filter((_, j) => j !== i) })}>削除</button>
-            </span>
-          </div>
-        ))}
-        <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="有ったら嬉しい"
-          disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, nice: [...reqDraft.nice, item] })} />
-
-        <div className="review-panel-title" style={{ marginTop: 10 }}>除外条件（該当するデメリットを持つ遺物を丸ごと対象外にします）</div>
-        {reqDraft.exclude.map((ex, i) => (
-          <div key={i} className="ocr-sync-old-row">
-            <span>{ex.skill}{ex.depthHint ? `（${ex.depthHint}）` : ""}</span>
-            <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, exclude: reqDraft.exclude.filter((_, j) => j !== i) })}>削除</button>
-          </div>
-        ))}
-        <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={DEMERIT_OPTIONS_BUILD} label="除外"
-          disabledValues={disabled} disabledCategories={disabledCats}
-          onAdd={(item) => setReqDraft({ ...reqDraft, exclude: [...reqDraft.exclude, item] })} />
-
-        <div className="card-edit-row" style={{ marginTop: 12 }}>
-          <button className="data-btn" onClick={saveReq} disabled={!reqDraft.name.trim()}>保存</button>
-          <button className="data-btn secondary" onClick={cancelEdit}>キャンセル</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div>
+    <div className="review-panel-inline">
       <div className="filter-row">
-        <button className="data-btn" onClick={startNew}>新しいビルド要件を作る</button>
+        <input className="paste-textarea" style={{ minHeight: "auto", flex: 1 }} placeholder="ビルド名"
+          value={reqDraft.name} onChange={(e) => setReqDraft({ ...reqDraft, name: e.target.value })} />
       </div>
-      {buildRequirements.length === 0 && <div className="chalice-note">まだビルド要件がありません。</div>}
-      {buildRequirements.map((req) => {
-        const chalice = proposalChalice[req.id] || { char: CHALICE_ORDER[0], chaliceLabel: "" };
-        const opts = [...(CHALICES2[chalice.char] || []), ...(CHALICES2["共通"] || [])];
-        return (
-          <div key={req.id} className="ocr-sync-group">
-            <div className="review-panel-skill">{req.name}</div>
-            <div className="chalice-note" style={{ marginTop: 2 }}>
-              必須{req.musts.length}件／重ね掛け{req.stackable ? "1件" : "なし"}／有ったら嬉しい{req.nice.length}件／除外{req.exclude.length}件
-            </div>
-            <div className="filter-row" style={{ marginTop: 6 }}>
-              <select className="select-input" value={chalice.char} onChange={(e) => setProposalChalice({ ...proposalChalice, [req.id]: { char: e.target.value, chaliceLabel: "" } })}>
-                {CHALICE_ORDER.filter((c) => CHALICES2[c]).map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select className="select-input" value={chalice.chaliceLabel} onChange={(e) => setProposalChalice({ ...proposalChalice, [req.id]: { ...chalice, chaliceLabel: e.target.value } })}>
-                <option value="">盃を選ぶ…</option>
-                {opts.map(([n]) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <div className="card-edit-row" style={{ marginTop: 6 }}>
-              <button className="card-edit-btn review" disabled={!chalice.chaliceLabel} onClick={() => runProposal(req)}>提案する</button>
-              <button className="card-edit-btn" onClick={() => startEditReq(req)}>編集</button>
-              <button className="card-edit-btn danger" onClick={() => deleteReq(req.id)}>削除</button>
-            </div>
-            {proposalResult && proposalResult.reqId === req.id && (
-              <ProposalResultView
-                result={proposalResult.result}
-                req={req}
-                tieChoiceIndex={tieChoiceIndex}
-                setTieChoiceIndex={setTieChoiceIndex}
-                onConfirmTie={(chosenCombo) => {
-                  const log = { at: new Date().toISOString(), musts: req.musts.map((m) => m.skill) };
-                  const nextReq = { ...req, tieLog: [...(req.tieLog || []), log] };
-                  setBuildRequirementsPersist(buildRequirements.map((r) => (r.id === req.id ? nextReq : r)));
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
-function ProposalResultView({ result, req, tieChoiceIndex, setTieChoiceIndex, onConfirmTie }) {
-  if (!result.ok) {
-    return (
-      <div className="chalice-note" style={{ marginTop: 8, color: "#C08A7D" }}>
-        提案できませんでした（{result.category}）：{result.reason}
-      </div>
-    );
-  }
-  const combos = result.best.combos;
-  const chosen = combos[Math.min(tieChoiceIndex, combos.length - 1)];
-  const { assign, combo } = chosen;
-  const { filled, emptySlotIdx } = fillRemainingSlots(assign, combo, req.musts, req.stackable, req.nice, result.usable, result.slots);
-  return (
-    <div style={{ marginTop: 8 }}>
-      {combos.length > 1 && (
-        <div className="chalice-note">
-          同じ良さの組み合わせが{combos.length}件あります。候補を切り替えて選んでください。
-          <div className="card-edit-row" style={{ marginTop: 4 }}>
-            {combos.length > 1 && tieChoiceIndex > 0 && (
-              <button className="card-edit-btn" onClick={() => setTieChoiceIndex(tieChoiceIndex - 1)}>前の候補</button>
-            )}
-            <span>{tieChoiceIndex + 1} / {combos.length}</span>
-            {tieChoiceIndex < combos.length - 1 && (
-              <button className="card-edit-btn" onClick={() => setTieChoiceIndex(tieChoiceIndex + 1)}>次の候補</button>
-            )}
-            <button className="card-edit-btn review" onClick={() => onConfirmTie(chosen)}>この候補で確定</button>
-          </div>
+      <div className="review-panel-title" style={{ marginTop: 10 }}>必須（重ね掛け不可、複数選べます）</div>
+      {reqDraft.musts.map((m, i) => (
+        <div key={i} className="ocr-sync-old-row">
+          <span>{m.skill}{m.depthHint ? `（${m.depthHint}）` : ""}</span>
+          <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, musts: reqDraft.musts.filter((_, j) => j !== i) })}>削除</button>
         </div>
+      ))}
+      <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="必須" eligibleFilter={isMustEligibleBase}
+        disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, musts: [...reqDraft.musts, item] })} />
+
+      <div className="review-panel-title" style={{ marginTop: 10 }}>重ね掛け枠（1種類のみ、あるだけ積む対象）</div>
+      {reqDraft.stackable ? (
+        <div className="ocr-sync-old-row">
+          <span>{reqDraft.stackable.skill}{reqDraft.stackable.depthHint ? `（${reqDraft.stackable.depthHint}）` : ""}</span>
+          <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, stackable: null })}>削除</button>
+        </div>
+      ) : (
+        <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="重ね掛け" eligibleFilter={isStackableEligibleBase}
+          disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, stackable: item })} />
       )}
-      <ul className="review-panel-list">
-        {req.musts.map((m, i) => {
-          const slot = result.slots[assign[i]];
-          const relic = combo[i];
-          const allSkills = relic.skills.map((s) => skillFullText(s));
-          return (
-            <li key={i}>
-              【{slot.color}・{slot.depth}】必須：{m.skill}　｜　{allSkills.join(" / ")}
-            </li>
-          );
-        })}
-        {filled.map((f, i) => {
-          const slot = result.slots[f.slotIdx];
-          const allSkills = f.relic.skills.map((s) => skillFullText(s));
-          return (
-            <li key={`f${i}`}>
-              【{slot.color}・{slot.depth}】{f.reason}　｜　{allSkills.join(" / ")}
-            </li>
-          );
-        })}
-        {emptySlotIdx.map((si) => {
-          const slot = result.slots[si];
-          return <li key={`e${si}`}>【{slot.color}・{slot.depth}】空き枠（該当する候補が見つかりませんでした）</li>;
-        })}
-      </ul>
+
+      <div className="review-panel-title" style={{ marginTop: 10 }}>有ったら嬉しい（上から優先されます）</div>
+      {reqDraft.nice.map((n, i) => (
+        <div key={i} className="ocr-sync-old-row">
+          <span>#{i + 1} {n.skill}{n.depthHint ? `（${n.depthHint}）` : ""}</span>
+          <span>
+            {i > 0 && <button className="card-edit-btn" onClick={() => {
+              const arr = [...reqDraft.nice]; [arr[i-1], arr[i]] = [arr[i], arr[i-1]]; setReqDraft({ ...reqDraft, nice: arr });
+            }}>↑</button>}
+            {i < reqDraft.nice.length - 1 && <button className="card-edit-btn" onClick={() => {
+              const arr = [...reqDraft.nice]; [arr[i+1], arr[i]] = [arr[i], arr[i+1]]; setReqDraft({ ...reqDraft, nice: arr });
+            }}>↓</button>}
+            <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, nice: reqDraft.nice.filter((_, j) => j !== i) })}>削除</button>
+          </span>
+        </div>
+      ))}
+      <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="有ったら嬉しい"
+        disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, nice: [...reqDraft.nice, item] })} />
+
+      <div className="review-panel-title" style={{ marginTop: 10 }}>除外条件（該当するデメリットを持つ遺物を丸ごと対象外にします）</div>
+      {reqDraft.exclude.map((ex, i) => (
+        <div key={i} className="ocr-sync-old-row">
+          <span>{ex.skill}{ex.depthHint ? `（${ex.depthHint}）` : ""}</span>
+          <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, exclude: reqDraft.exclude.filter((_, j) => j !== i) })}>削除</button>
+        </div>
+      ))}
+      <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={DEMERIT_OPTIONS_BUILD} label="除外"
+        disabledValues={disabled} disabledCategories={disabledCats}
+        onAdd={(item) => setReqDraft({ ...reqDraft, exclude: [...reqDraft.exclude, item] })} />
+
+      <div className="card-edit-row" style={{ marginTop: 12 }}>
+        <button className="data-btn" onClick={saveReq} disabled={!reqDraft.name.trim()}>保存</button>
+        <button className="data-btn secondary" onClick={cancelEdit}>キャンセル</button>
+        {reqDraft.id && <button className="card-edit-btn danger" onClick={deleteReq}>削除</button>}
+      </div>
     </div>
   );
 }
-
 
 // 描画中に予期しないエラーが起きても、画面が真っ白になったまま固まるのではなく、
 // エラー内容とリロード導線を見せる（データ自体は各操作のたびに保存済みなので失われない）
@@ -4327,6 +4155,15 @@ const GLOBAL_CSS = `
 .build-tab.new {
   border-style: dashed;
   color: #8C7F68;
+}
+.build-tab.proposal {
+  border-color: #7FA9C9;
+  color: #7FA9C9;
+}
+.build-tab.proposal.active {
+  background: rgba(127,169,201,0.20);
+  border-color: #7FA9C9;
+  color: #EFE6CC;
 }
 .build-name-input {
   background: transparent;
