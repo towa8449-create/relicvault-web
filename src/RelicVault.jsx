@@ -142,6 +142,54 @@ function lookupEffectEntry(fullText, depth) {
   return EFFECT_BY_NAME.get(fullText) || null;
 }
 
+// EFFECT_TABLEの名前を「（通常/深層遺物）」「+tier」を取り除いた基礎名に正規化する
+function effectTableBaseName(name) {
+  const depthMatch = name.match(/^(.+)（(?:通常|深層)遺物）$/);
+  if (depthMatch) return depthMatch[1];
+  const tierMatch = name.match(/^(.+?)[+＋]\d+$/);
+  return tierMatch ? tierMatch[1] : name;
+}
+// baseNameに属する全tier（無印含む）を、tier値の降順で返す（重複値は除く）
+// depthHintを渡すと、「最大HP上昇」のように通常/深層で実体が別物のスキルを、その深度専用の実体だけに絞る
+function tiersForBase(baseName, depthHint) {
+  const list = [];
+  const seen = new Set();
+  EFFECT_TABLE.forEach((e) => {
+    const depthMatch = e.name.match(/^(.+)（(通常|深層)遺物）$/);
+    if (depthMatch) {
+      const [, base, kind] = depthMatch;
+      if (base !== baseName) return;
+      if (!depthHint) return; // depthHint未指定では、通常/深層どちらの実体か決められないため対象外
+      const entryDepthHint = kind === "通常" ? "景色" : "昏景";
+      if (entryDepthHint !== depthHint) return;
+      list.push({ value: 0, entry: e });
+      return;
+    }
+    if (depthHint) return; // depthHint指定時は、通常/深層専用の実体だけを見る（汎用エントリは対象外）
+    if (effectTableBaseName(e.name) !== baseName) return;
+    const tierMatch = e.name.match(/[+＋](\d+)$/);
+    const value = tierMatch ? parseInt(tierMatch[1], 10) : 0;
+    if (seen.has(value)) return;
+    seen.add(value);
+    list.push({ value, entry: e });
+  });
+  list.sort((a, b) => b.value - a.value);
+  return list;
+}
+// 必須の選択肢に出してよいか（重ね掛け不可、かつtierが実質1つしかない＝常に1インスタンスのみ存在しうる）
+function isMustEligibleBase(baseName, depthHint) {
+  const tiers = tiersForBase(baseName, depthHint);
+  if (tiers.length === 0) return true; // データ未収録のものは保守的に許可する
+  if (tiers[0].entry.stackable === true) return false;
+  return tiers.length <= 1;
+}
+// 重ね掛け枠の選択肢に出してよいか（真の重ね掛け可、またはtier違いが複数存在し共存できる）
+function isStackableEligibleBase(baseName, depthHint) {
+  const tiers = tiersForBase(baseName, depthHint);
+  if (tiers.length === 0) return false;
+  return tiers[0].entry.stackable === true || tiers.length > 1;
+}
+
 // 単体重要度（1〜10、5が標準）：原本データを既定値とし、ユーザー調整があればそちらを優先する
 const DEFAULT_IMPORTANCE = 5;
 function getBaseImportance(fullText) {
@@ -568,22 +616,62 @@ function buildEffectOptions(relics) {
 }
 
 // マスター一覧（EFFECT_TABLE）全体から、tierを除いた基礎名の一覧を作る（自動生成の効果選択肢用。所持していないものも含む）
+// expandDepthPairs=falseの時：「最大HP上昇（通常遺物）／（深層遺物）」は実際の遺物表記に合わせ「最大HP上昇」1本に畳み込む（既存の自動生成機能向け）
+// expandDepthPairs=trueの時：通常/深層で計算方式・重ね掛け可否が異なるため、「最大HP上昇（通常）」「最大HP上昇（深層）」を別項目として出す（ビルド提案機能向け）
 // 並び順はExcel（マスター一覧）上での並びに合わせる
-function buildMasterEffectOptions(relics) {
+// DEMERIT_MAP（既知のデメリット一覧）と、実際の手持ちデータに登場するデメリット（未収録のものを含む）を統合し、
+// 除外選択肢用のデメリット一覧を作る
+function buildDemeritOptions(relics) {
   const owned = new Map();
+  relics.forEach((r) => r.skills.forEach((s) => {
+    if (!s.demerit) return;
+    owned.set(s.demerit, (owned.get(s.demerit) || 0) + 1);
+  }));
+  const names = new Set([...Object.keys(DEMERIT_MAP), ...owned.keys()]);
+  return [...names].map((name) => ({
+    value: `D:${name}`, label: `${name}（デメリット）`, base: name, depthHint: null, count: owned.get(name) || 0,
+  }));
+}
+
+function buildMasterEffectOptions(relics, expandDepthPairs) {
+  const owned = new Map(); // key(depth別を含む) -> count
   relics.forEach((r) => r.skills.forEach((s) => {
     const key = skillIdentity(s);
     owned.set(key, (owned.get(key) || 0) + 1);
+    owned.set(`${key}#${r.depth}`, (owned.get(`${key}#${r.depth}`) || 0) + 1);
   }));
-  const bases = new Map(); // base -> true
+  // 通常/深層で実体が分かれているbase名を先に集める（この後、汎用（曖昧な）表記を出さないようにするため）
+  const depthPairedBases = new Set();
   EFFECT_TABLE.forEach((e) => {
+    const m = e.name.match(/^(.+)（(?:通常|深層)遺物）$/);
+    if (m) depthPairedBases.add(m[1]);
+  });
+  const bases = new Map(); // value -> {label, base, depthHint}
+  EFFECT_TABLE.forEach((e) => {
+    const depthMatch = e.name.match(/^(.+)（(通常|深層)遺物）$/);
+    if (depthMatch) {
+      const [, base, kind] = depthMatch;
+      if (expandDepthPairs) {
+        const depthHint = kind === "通常" ? "景色" : "昏景";
+        const value = `N:${base}#${depthHint}`;
+        bases.set(value, { label: `${base}（${kind}）`, base, depthHint, sortKey: `N:${base}` });
+      } else {
+        bases.set(`N:${base}`, { label: base, base, depthHint: null, sortKey: `N:${base}` });
+      }
+      return;
+    }
     const m = e.name.match(/^(.+?)[+＋]\d+$/);
     const base = m ? m[1] : e.name;
-    bases.set(base, true);
+    if (expandDepthPairs && depthPairedBases.has(base)) return; // 通常/深層専用の表記があるので、曖昧な汎用表記は出さない
+    const value = `N:${base}`;
+    if (!bases.has(value)) bases.set(value, { label: base, base, depthHint: null, sortKey: value });
   });
-  return [...bases.keys()]
-    .map((base) => ({ value: `N:${base}`, label: base, count: owned.get(`N:${base}`) || 0 }))
-    .sort((a, b) => excelSortOrder(a.value) - excelSortOrder(b.value));
+  return [...bases.entries()]
+    .map(([value, info]) => ({
+      value, label: info.label, base: info.base, depthHint: info.depthHint,
+      count: owned.get(info.depthHint ? `N:${info.base}#${info.depthHint}` : `N:${info.base}`) || 0,
+    }))
+    .sort((a, b) => excelSortOrder(a.value.split("#")[0]) - excelSortOrder(b.value.split("#")[0]));
 }
 
 
@@ -902,6 +990,311 @@ function hasPrayerNoAptitudeCombo(relic) {
   return false;
 }
 
+/* ===== ビルド提案エンジン（症例検討で固めた仕様） =====
+   ・盃はユーザーが選ぶ（自動選択しない）
+   ・必須（重ね掛け不可）は複数、重ね掛け枠は1種類、有ったら嬉しいは優先順位付きリスト
+   ・除外条件はテキスト部分一致
+   ・0)除外→1)必須の色×遺物を全探索→2)残り枠に重ね掛けを全探索→3)残り枠に有ったら嬉しいを優先順で1つずつ
+   ・組み合わせ数が閾値を超える場合は実行しない（対処法を提示） */
+const BUILD_SEARCH_THRESHOLD = 10000;
+const BUILD_SEARCH_TIME_LIMIT_MS = 4000;
+
+// 「最大HP上昇」のように通常/深層で実体が違うスキルは、reqItem.depthHintで景色/昏景を明示させる
+function reqItemBaseText(reqItem) {
+  return reqItem.skill;
+}
+function relicHasReqSkill(relic, reqItem) {
+  if (reqItem.depthHint && relic.depth !== reqItem.depthHint) return false;
+  return relic.skills.some((s) => skillBaseName(s) === reqItem.skill);
+}
+
+// exclude: [{skill, depthHint}] の配列。効果名・デメリット名のどちらでも指定でき、完全一致すれば遺物ごと除外する
+function applyExclude(relics, excludeList) {
+  if (!excludeList || excludeList.length === 0) return relics;
+  return relics.filter((r) => {
+    for (const item of excludeList) {
+      if (item.depthHint && r.depth !== item.depthHint) continue;
+      const matches = r.skills.some((s) => skillBaseName(s) === item.skill || s.demerit === item.skill);
+      if (matches) return false;
+    }
+    return true;
+  });
+}
+
+// チャリスの使用可能スロット一覧（[{color, depth, slotIndex}]、「無」は除外）
+// 「無」は使えないスロットではなく、色の指定が無い（どの色でも入れられる）ワイルドカード枠
+function chaliceUsableSlots(colors, depths) {
+  const slots = [];
+  colors.forEach((c, i) => { if (c) slots.push({ color: c === "無" ? "任意" : c, depth: "景色", slotIndex: i }); });
+  depths.forEach((c, i) => { if (c) slots.push({ color: c === "無" ? "任意" : c, depth: "昏景", slotIndex: 3 + i }); });
+  return slots;
+}
+// スロットの色制約に、遺物の色が合っているか（「任意」はどの色でも合致する）
+function slotColorMatches(slot, relicColor) {
+  return slot.color === "任意" || slot.color === relicColor;
+}
+
+// ある遺物が持つ、戦技/魔術/祈祷/付加/探索の各カテゴリ（ゲーム上「左側優先」で1つしか発動しない枠）の集合
+function skillCategoriesOf(relic) {
+  const cats = new Set();
+  relic.skills.forEach((s) => {
+    const cat = weaponChangeCategory(skillFullText(s));
+    if (cat) cats.add(cat);
+  });
+  return cats;
+}
+
+// 必須アイテムを、使用可能スロットへ割り当てる全パターンをバックトラックで列挙する
+// （同じ色・深度のスロットは区別せず、実質的に異なる割り当てだけを列挙する）
+function enumerateAssignments(items, slots) {
+  const results = [];
+  const usedSlot = new Array(slots.length).fill(false);
+  const assignment = new Array(items.length).fill(-1);
+  // 同一(color,depth)のスロットは1つの代表だけ試せば十分（結果は同じなので重複を避ける）
+  function backtrack(itemIdx) {
+    if (itemIdx === items.length) {
+      results.push(assignment.slice());
+      return;
+    }
+    const item = items[itemIdx];
+    const triedColorDepth = new Set();
+    for (let si = 0; si < slots.length; si++) {
+      if (usedSlot[si]) continue;
+      const slot = slots[si];
+      const key = `${slot.color}|${slot.depth}`;
+      if (triedColorDepth.has(key)) continue; // 同条件スロットは1回だけ試す
+      if (item.depthHint && slot.depth !== item.depthHint) continue;
+      triedColorDepth.add(key);
+      usedSlot[si] = true;
+      assignment[itemIdx] = si;
+      backtrack(itemIdx + 1);
+      usedSlot[si] = false;
+      assignment[itemIdx] = -1;
+    }
+  }
+  backtrack(0);
+  return results;
+}
+
+function buildProposal(requirement, RELICS, importanceOverrides) {
+  const { chaliceColors, chaliceDepths, musts, stackable, nice, exclude } = requirement;
+  const slots = chaliceUsableSlots(chaliceColors, chaliceDepths);
+
+  if (musts.length > slots.length) {
+    return { ok: false, category: "C", reason: `必須の数（${musts.length}）が、使用可能な枠の数（${slots.length}）を超えています。` };
+  }
+
+  const usable = applyExclude(RELICS.filter((r) => !r.sell), exclude);
+
+  // B：必須の中に、除外後の手持ち全体（このチャリスの色に関わらず）どこにも候補が無いものがあるか
+  for (const item of musts) {
+    const anyMatch = usable.some((r) => relicHasReqSkill(r, item));
+    if (!anyMatch) {
+      return { ok: false, category: "B", reason: `必須「${item.skill}${item.depthHint ? `（${item.depthHint}）` : ""}」を持つ遺物が、除外条件を除いた手持ちの中に見つかりません。` };
+    }
+  }
+
+  const assignments = enumerateAssignments(musts, slots);
+  if (assignments.length === 0) {
+    return { ok: false, category: "A", reason: "必須スキル同士の色・深度が噛み合わず、同じ盃の中に同居できる組み合わせが見つかりません。" };
+  }
+
+  // 各割り当てパターンごとに、該当スロットの候補一覧を作る
+  let totalCombos = 0;
+  const perAssignmentCandidates = [];
+  for (const assign of assignments) {
+    const candLists = [];
+    let feasible = true;
+    for (let i = 0; i < musts.length; i++) {
+      const slot = slots[assign[i]];
+      const cands = usable.filter((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && relicHasReqSkill(r, musts[i]));
+      if (cands.length === 0) { feasible = false; break; }
+      candLists.push(cands);
+    }
+    if (!feasible) continue;
+    const comboCount = candLists.reduce((a, c) => a * c.length, 1);
+    totalCombos += comboCount;
+    perAssignmentCandidates.push({ assign, candLists });
+  }
+
+  if (totalCombos === 0) {
+    return { ok: false, category: "A", reason: "必須スキル同士の色・深度が噛み合わず、同じ盃の中に同居できる組み合わせが見つかりません。" };
+  }
+  if (totalCombos > BUILD_SEARCH_THRESHOLD) {
+    return { ok: false, category: "閾値超過", reason: `試すべき組み合わせが${totalCombos.toLocaleString()}通りあり、多すぎるため計算しません。必須または有ったら嬉しいの数を絞ってください。` };
+  }
+
+  const niceBaseList = nice.map((n) => n.skill);
+  function niceHitInfo(relic, excludeSkillText) {
+    const hits = [];
+    let stackHit = false;
+    for (const s of relic.skills) {
+      const base = skillBaseName(s);
+      if (base === excludeSkillText) continue;
+      if (stackable && base === stackable.skill && (!stackable.depthHint || relic.depth === stackable.depthHint)) stackHit = true;
+      const idx = niceBaseList.indexOf(base);
+      if (idx !== -1) hits.push(idx);
+    }
+    return { hits, stackHit };
+  }
+
+  const startTime = Date.now();
+  let best = null; // { score:[hitSetSize, stackCount, rankScore], combos: [{assign, combo}] }
+  for (const { assign, candLists } of perAssignmentCandidates) {
+    if (Date.now() - startTime > BUILD_SEARCH_TIME_LIMIT_MS) break;
+    const idxs = new Array(candLists.length).fill(0);
+    while (true) {
+      const combo = idxs.map((ci, i) => candLists[i][ci]);
+      // カテゴリ枠（戦技/魔術/祈祷/付加/探索）の左右関係チェック：必須スキルが、より左の同カテゴリに潰されていないか
+      let categoryOk = true;
+      const leftmostCat = new Map();
+      for (let i = 0; i < combo.length; i++) {
+        const slotIdx = assign[i];
+        skillCategoriesOf(combo[i]).forEach((cat) => {
+          const cur = leftmostCat.get(cat);
+          if (cur === undefined || slotIdx < cur) leftmostCat.set(cat, slotIdx);
+        });
+      }
+      for (let i = 0; i < musts.length; i++) {
+        const cat = weaponChangeCategory(musts[i].skill);
+        if (!cat) continue;
+        if (leftmostCat.get(cat) !== assign[i]) { categoryOk = false; break; }
+      }
+      if (categoryOk) {
+        const hitSet = new Set();
+        let stackCount = 0;
+        let rankScore = 0;
+        for (let i = 0; i < combo.length; i++) {
+          const { hits, stackHit } = niceHitInfo(combo[i], musts[i].skill);
+          hits.forEach((h) => { hitSet.add(h); rankScore += (niceBaseList.length - h); });
+          if (stackHit) stackCount++;
+        }
+        const score = [hitSet.size, stackCount, rankScore];
+        const better = !best || score[0] > best.score[0] ||
+          (score[0] === best.score[0] && score[1] > best.score[1]) ||
+          (score[0] === best.score[0] && score[1] === best.score[1] && score[2] > best.score[2]);
+        if (!best || better) {
+          best = { score, combos: [{ assign, combo }] };
+        } else if (score[0] === best.score[0] && score[1] === best.score[1] && score[2] === best.score[2]) {
+          best.combos.push({ assign, combo });
+        }
+      }
+      // 次の組み合わせへ
+      let carry = idxs.length - 1;
+      while (carry >= 0) {
+        idxs[carry]++;
+        if (idxs[carry] < candLists[carry].length) break;
+        idxs[carry] = 0; carry--;
+      }
+      if (carry < 0) break;
+    }
+  }
+
+  if (!best) {
+    return { ok: false, category: "A", reason: "必須スキル同士の色・深度、または戦技/魔術/祈祷/付加/探索の同一枠が噛み合わず、同じ盃の中に同居できる組み合わせが見つかりません。" };
+  }
+
+  return { ok: true, slots, musts, stackable, nice, best, usable, needsTieBreak: best.combos.length > 1 };
+}
+
+// フェーズ2・3：必須で埋まらなかった残り枠に、重ね掛け枠→有ったら嬉しいの順で埋める
+function fillRemainingSlots(assign, combo, musts, stackable, nice, usable, slots) {
+  const usedSlotIdx = new Set(assign);
+  const usedRelicIds = new Set(combo.map((r) => r.id));
+  let remainingSlotIdx = slots.map((_, i) => i).filter((i) => !usedSlotIdx.has(i));
+  const filled = [];
+
+  // 戦技/魔術/祈祷/付加/探索の各カテゴリについて、現時点で一番左（小さいslotIdx）で確保されている位置を記録する
+  const claimedCategories = new Map();
+  combo.forEach((relic, i) => {
+    const slotIdx = assign[i];
+    skillCategoriesOf(relic).forEach((cat) => {
+      const cur = claimedCategories.get(cat);
+      if (cur === undefined || slotIdx < cur) claimedCategories.set(cat, slotIdx);
+    });
+  });
+  // このslotIdxに候補を置くと、より右にある既存のカテゴリ確保（必須等）を潰してしまわないか
+  function violatesCategory(candidate, slotIdx) {
+    for (const cat of skillCategoriesOf(candidate)) {
+      const claimedAt = claimedCategories.get(cat);
+      if (claimedAt !== undefined && slotIdx < claimedAt) return true;
+    }
+    return false;
+  }
+  function registerClaims(candidate, slotIdx) {
+    skillCategoriesOf(candidate).forEach((cat) => {
+      const cur = claimedCategories.get(cat);
+      if (cur === undefined || slotIdx < cur) claimedCategories.set(cat, slotIdx);
+    });
+  }
+
+  if (stackable) {
+    const tiers = tiersForBase(stackable.skill, stackable.depthHint);
+    const isTrueStack = tiers.length > 0 && tiers[0].entry.stackable === true;
+    for (const slotIdx of [...remainingSlotIdx]) {
+      const slot = slots[slotIdx];
+      if (stackable.depthHint && slot.depth !== stackable.depthHint) continue;
+      let picked = null;
+      if (isTrueStack) {
+        // 真の重ね掛け：毎回、その時点で選べる最高tierを選ぶ（同tier複数枚もあり得る）
+        const cands = usable.filter((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && !usedRelicIds.has(r.id) &&
+          !violatesCategory(r, slotIdx) &&
+          r.skills.some((s) => skillBaseName(s) === stackable.skill));
+        if (cands.length) {
+          cands.sort((a, b) => {
+            const tv = (r) => { const s = r.skills.find((s2) => skillBaseName(s2) === stackable.skill); return s && s.numeric ? s.numeric.value : 0; };
+            return tv(b) - tv(a);
+          });
+          picked = cands[0];
+        }
+      } else {
+        // tier違い共存型：まだ使っていないtierの中で一番高いものから
+        for (const t of tiers) {
+          const cand = usable.find((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && !usedRelicIds.has(r.id) &&
+            !violatesCategory(r, slotIdx) &&
+            r.skills.some((s) => skillBaseName(s) === stackable.skill && (s.numeric ? s.numeric.value : 0) === t.value));
+          if (cand) { picked = cand; break; }
+        }
+      }
+      if (picked) {
+        filled.push({ slotIdx, relic: picked, reason: "重ね掛け" });
+        usedRelicIds.add(picked.id);
+        registerClaims(picked, slotIdx);
+        remainingSlotIdx = remainingSlotIdx.filter((i) => i !== slotIdx);
+      }
+    }
+  }
+
+  for (let ni = 0; ni < nice.length; ni++) {
+    const n = nice[ni];
+    for (const slotIdx of [...remainingSlotIdx]) {
+      const slot = slots[slotIdx];
+      if (n.depthHint && slot.depth !== n.depthHint) continue;
+      const cands = usable.filter((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && !usedRelicIds.has(r.id) &&
+        !violatesCategory(r, slotIdx) &&
+        r.skills.some((s) => skillBaseName(s) === n.skill));
+      if (!cands.length) continue;
+      let picked = cands[0];
+      if (cands.length > 1) {
+        let bestScore = -1;
+        for (const c of cands) {
+          let score = 0;
+          for (let nj = ni + 1; nj < nice.length; nj++) {
+            if (c.skills.some((s) => skillBaseName(s) === nice[nj].skill)) { score = nice.length - nj; break; }
+          }
+          if (score > bestScore) { bestScore = score; picked = c; }
+        }
+      }
+      filled.push({ slotIdx, relic: picked, reason: `有ったら嬉しい#${ni + 1}` });
+      usedRelicIds.add(picked.id);
+      registerClaims(picked, slotIdx);
+      remainingSlotIdx = remainingSlotIdx.filter((i) => i !== slotIdx);
+    }
+  }
+
+  return { filled, emptySlotIdx: remainingSlotIdx };
+}
+
 // あるスキルの「同一スキル名の重ね掛け」可否を調べる（DAMAGE_TABLEを優先、無ければ効果量データを見る）
 function lookupStackable(skillText, depth) {
   const dmg = DAMAGE_TABLE[skillText];
@@ -1013,7 +1406,7 @@ function ChaliceListbox({ options, value, onChange, disabled, placeholder }) {
 }
 
 // 汎用の検索付きドロップダウン（効果一覧からの選択などに使用）
-function SearchableListbox({ options, placeholder, onSelect, buttonLabel }) {
+function SearchableListbox({ options, placeholder, onSelect, buttonLabel, disabledValues }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const wrapRef = React.useRef(null);
@@ -1048,17 +1441,21 @@ function SearchableListbox({ options, placeholder, onSelect, buttonLabel }) {
           />
           <div className="searchable-listbox-list">
             {filtered.length === 0 && <div className="searchable-listbox-empty">該当なし</div>}
-            {filtered.slice(0, 300).map((o) => (
-              <button
-                type="button"
-                key={o.value}
-                className="searchable-listbox-item"
-                onClick={() => { onSelect(o.value); setOpen(false); setQ(""); }}
-              >
-                {o.label}
-                {o.count ? <span className="searchable-listbox-count">{o.count}</span> : null}
-              </button>
-            ))}
+            {filtered.slice(0, 300).map((o) => {
+              const isDisabled = disabledValues && disabledValues.has(o.value);
+              return (
+                <button
+                  type="button"
+                  key={o.value}
+                  className={`searchable-listbox-item${isDisabled ? " disabled" : ""}`}
+                  disabled={!!isDisabled}
+                  onClick={() => { if (isDisabled) return; onSelect(o.value); setOpen(false); setQ(""); }}
+                >
+                  {o.label}
+                  {isDisabled ? <span className="searchable-listbox-selected-tag">選択済</span> : (o.count ? <span className="searchable-listbox-count">{o.count}</span> : null)}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1199,6 +1596,19 @@ function RelicVaultInner() {
   const [sellCandidateFilter, setSellCandidateFilter] = useState(""); // ""=指定なし, "complete", "charMismatch", "partial"
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [showNeededOnly, setShowNeededOnly] = useState(false);
+
+  // ビルド提案エンジン（試作）：ビルド要件の保存・編集・提案結果
+  const [buildRequirements, setBuildRequirements] = useState([]); // [{id,name,char,chaliceLabel,musts,stackable,nice,exclude,tieLog}]
+  const [showBuildProposal, setShowBuildProposal] = useState(false);
+  const [editingReqId, setEditingReqId] = useState(null); // null=新規作成フォーム非表示
+  const [reqDraft, setReqDraft] = useState(null); // 編集中のドラフト
+  const [proposalResult, setProposalResult] = useState(null); // {reqId, result}
+  const [tieChoiceIndex, setTieChoiceIndex] = useState(0);
+
+  const setBuildRequirementsPersist = useCallback((next) => {
+    setBuildRequirements(next);
+    storage.set("relic-build-requirements", JSON.stringify(next), false).catch(() => {});
+  }, []);
   const [importanceMin, setImportanceMin] = useState(""); // ""=指定なし
   const [importanceMax, setImportanceMax] = useState("");
   const [selectedEffects, setSelectedEffects] = useState([]); // [{value,label}]
@@ -1260,6 +1670,12 @@ function RelicVaultInner() {
       try {
         const res2c = await storage.get("relic-review-status", false);
         if (res2c && res2c.value) setReviewStatus(JSON.parse(res2c.value));
+      } catch (e) {
+        // 未保存キー
+      }
+      try {
+        const res2d = await storage.get("relic-build-requirements", false);
+        if (res2d && res2d.value) setBuildRequirements(JSON.parse(res2d.value));
       } catch (e) {
         // 未保存キー
       }
@@ -1417,8 +1833,9 @@ function RelicVaultInner() {
       exportedAt: new Date().toISOString(),
       builds,
       importanceOverrides,
+      buildRequirements,
     });
-  }, [builds, importanceOverrides]);
+  }, [builds, importanceOverrides, buildRequirements]);
 
   // 旧形式（キャラ→単一ビルド、3スロットのみ）を新形式（キャラ→盃→名前付きビルド配列、6スロット）に変換する
   const migrateBuildsShape = (raw) => {
@@ -1463,6 +1880,10 @@ function RelicVaultInner() {
     if (json.importanceOverrides && typeof json.importanceOverrides === "object") {
       setImportanceOverrides(json.importanceOverrides);
       storage.set("relic-importance-overrides", JSON.stringify(json.importanceOverrides), false).catch(() => {});
+    }
+    if (Array.isArray(json.buildRequirements)) {
+      setBuildRequirements(json.buildRequirements);
+      storage.set("relic-build-requirements", JSON.stringify(json.buildRequirements), false).catch(() => {});
     }
     // 旧形式（version 3以前）のお気に入りは、遺物データ側にその場で取り込む
     if (json.meta && typeof json.meta === "object") {
@@ -1790,6 +2211,8 @@ function RelicVaultInner() {
   const DEMERIT_BASES = useMemo(() => buildDemeritBases(RELICS), [RELICS]);
   const EFFECT_OPTIONS = useMemo(() => buildEffectOptions(RELICS), [RELICS]);
   const MASTER_EFFECT_OPTIONS = useMemo(() => buildMasterEffectOptions(RELICS), [RELICS]);
+  const MASTER_EFFECT_OPTIONS_BUILD = useMemo(() => buildMasterEffectOptions(RELICS, true), [RELICS]);
+  const DEMERIT_OPTIONS_BUILD = useMemo(() => buildDemeritOptions(RELICS), [RELICS]);
 
   // 自動生成の効果選択肢：マスター一覧(Excel)全件から、今のキャラで実際に効果を発揮するものだけに絞る
   // （所持していないスキルも選択肢に出す。自動生成時に該当遺物が無ければそのスロットは空欄のまま）
@@ -2625,6 +3048,32 @@ function foldGenericLayers(rows) {
         </div>
       )}
 
+      <div className="chalice-bar">
+        <div className="panel-title">
+          <button className="build-toggle-btn" onClick={() => setShowBuildProposal((v) => !v)}>
+            {showBuildProposal ? "ビルド提案を閉じる ▲" : "ビルド提案（試作） ▾"}
+          </button>
+        </div>
+        {showBuildProposal && (
+          <BuildProposalPanel
+            buildRequirements={buildRequirements}
+            setBuildRequirementsPersist={setBuildRequirementsPersist}
+            editingReqId={editingReqId}
+            setEditingReqId={setEditingReqId}
+            reqDraft={reqDraft}
+            setReqDraft={setReqDraft}
+            proposalResult={proposalResult}
+            setProposalResult={setProposalResult}
+            tieChoiceIndex={tieChoiceIndex}
+            setTieChoiceIndex={setTieChoiceIndex}
+            MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS_BUILD}
+            DEMERIT_OPTIONS_BUILD={DEMERIT_OPTIONS_BUILD}
+            RELICS={RELICS}
+            askConfirm={askConfirm}
+          />
+        )}
+      </div>
+
       <div className="filter-bar">
         <div className="filter-row">
           <span className="filter-label">スロット</span>
@@ -3296,6 +3745,287 @@ function foldGenericLayers(rows) {
   );
 }
 
+// ビルド提案エンジンのUI（試作）
+function getChaliceEntryGlobal(charName, chaliceLabel) {
+  return (CHALICES2[charName] || []).find(([n]) => n === chaliceLabel) ||
+    (CHALICES2["共通"] || []).find(([n]) => n === chaliceLabel);
+}
+// 保存するのはルール（必須/重ね掛け/有ったら嬉しい/除外）のみ。キャラ・盃は提案の実行時に毎回選ぶ
+function emptyReqDraft() {
+  return { id: null, name: "", musts: [], stackable: null, nice: [], exclude: [] };
+}
+
+function DepthAwareSkillAdder({ MASTER_EFFECT_OPTIONS, onAdd, label, eligibleFilter, disabledValues, disabledCategories }) {
+  const options = useMemo(() => {
+    const filtered = eligibleFilter ? MASTER_EFFECT_OPTIONS.filter((o) => eligibleFilter(o.base, o.depthHint)) : MASTER_EFFECT_OPTIONS;
+    return filtered.map((o) => ({
+      value: o.value,
+      label: o.count ? `${o.label}（所持${o.count}）` : `${o.label}（未所持）`,
+      base: o.base,
+      depthHint: o.depthHint,
+    }));
+  }, [MASTER_EFFECT_OPTIONS, eligibleFilter]);
+  const disabledByValue = useMemo(() => {
+    const set = new Set();
+    options.forEach((o) => {
+      // 選択済み判定はbase＋depthHintの組み合わせ単位（「最大HP上昇（通常）」と「（深層）」は別枠として独立に扱う）
+      const key = o.depthHint ? `${o.base}#${o.depthHint}` : o.base;
+      if (disabledValues && disabledValues.has(key)) { set.add(o.value); return; }
+      if (disabledCategories && disabledCategories.size > 0) {
+        const cat = weaponChangeCategory(o.base);
+        if (cat && disabledCategories.has(cat)) set.add(o.value);
+      }
+    });
+    return set;
+  }, [options, disabledValues, disabledCategories]);
+  return (
+    <div className="filter-row" style={{ marginTop: 6, alignItems: "center" }}>
+      <SearchableListbox
+        options={options}
+        placeholder={`${label}のスキルを検索…`}
+        buttonLabel={`${label}を選ぶ`}
+        disabledValues={disabledByValue}
+        onSelect={(value) => {
+          const opt = options.find((o) => o.value === value);
+          if (!opt) return;
+          onAdd({ skill: opt.base, depthHint: opt.depthHint });
+        }}
+      />
+    </div>
+  );
+}
+
+function BuildProposalPanel({
+  buildRequirements, setBuildRequirementsPersist, editingReqId, setEditingReqId,
+  reqDraft, setReqDraft, proposalResult, setProposalResult, tieChoiceIndex, setTieChoiceIndex,
+  MASTER_EFFECT_OPTIONS, DEMERIT_OPTIONS_BUILD, RELICS, askConfirm,
+}) {
+  const [proposalChalice, setProposalChalice] = useState({}); // {[reqId]: {char, chaliceLabel}}
+
+  const startNew = () => { setReqDraft(emptyReqDraft()); setEditingReqId("new"); };
+  const startEditReq = (req) => { setReqDraft(JSON.parse(JSON.stringify(req))); setEditingReqId(req.id); };
+  const cancelEdit = () => { setReqDraft(null); setEditingReqId(null); };
+
+  const saveReq = () => {
+    if (!reqDraft.name.trim()) return;
+    const withId = { ...reqDraft, id: reqDraft.id || genUuid(), tieLog: reqDraft.tieLog || [] };
+    const exists = buildRequirements.some((r) => r.id === withId.id);
+    const next = exists ? buildRequirements.map((r) => (r.id === withId.id ? withId : r)) : [...buildRequirements, withId];
+    setBuildRequirementsPersist(next);
+    setReqDraft(null);
+    setEditingReqId(null);
+  };
+
+  const deleteReq = (id) => {
+    askConfirm("このビルド要件を削除します。よろしいですか？", () => {
+      setBuildRequirementsPersist(buildRequirements.filter((r) => r.id !== id));
+      if (proposalResult && proposalResult.reqId === id) setProposalResult(null);
+    });
+  };
+
+  const runProposal = (req) => {
+    const chalice = proposalChalice[req.id];
+    if (!chalice || !chalice.chaliceLabel) return;
+    const entry = getChaliceEntryGlobal(chalice.char, chalice.chaliceLabel);
+    if (!entry) return;
+    const result = buildProposal({ ...req, chaliceColors: entry[1], chaliceDepths: entry[2] }, RELICS);
+    setProposalResult({ reqId: req.id, result });
+    setTieChoiceIndex(0);
+  };
+
+  // 必須/重ね掛け/有ったら嬉しい/除外、4枠全体を通して同じ遺物効果名の二重登録を防ぐ
+  // 選択済み判定はbase＋depthHintの組み合わせ単位（「最大HP上昇（通常）」と「（深層）」は独立に扱う）
+  const itemKey = (item) => (item.depthHint ? `${item.skill}#${item.depthHint}` : item.skill);
+  const usedBases = (draft) => new Set([
+    ...draft.musts.map(itemKey),
+    ...(draft.stackable ? [itemKey(draft.stackable)] : []),
+    ...draft.nice.map(itemKey),
+    ...draft.exclude.map(itemKey),
+  ]);
+  // 戦技/魔術/祈祷/付加/探索は、左側優先で1つしか発動しないため、同じ枠を2つ以上登録できないようにする
+  const usedCategories = (draft) => new Set([
+    ...draft.musts.map((m) => m.skill),
+    ...(draft.stackable ? [draft.stackable.skill] : []),
+    ...draft.nice.map((n) => n.skill),
+    ...draft.exclude.map((e) => e.skill),
+  ].map((b) => weaponChangeCategory(b)).filter(Boolean));
+
+  if (editingReqId) {
+    const disabled = usedBases(reqDraft);
+    const disabledCats = usedCategories(reqDraft);
+    return (
+      <div className="review-panel-inline">
+        <div className="filter-row">
+          <input className="paste-textarea" style={{ minHeight: "auto", flex: 1 }} placeholder="ビルド名"
+            value={reqDraft.name} onChange={(e) => setReqDraft({ ...reqDraft, name: e.target.value })} />
+        </div>
+
+        <div className="review-panel-title" style={{ marginTop: 10 }}>必須（重ね掛け不可、複数選べます）</div>
+        {reqDraft.musts.map((m, i) => (
+          <div key={i} className="ocr-sync-old-row">
+            <span>{m.skill}{m.depthHint ? `（${m.depthHint}）` : ""}</span>
+            <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, musts: reqDraft.musts.filter((_, j) => j !== i) })}>削除</button>
+          </div>
+        ))}
+        <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="必須" eligibleFilter={isMustEligibleBase}
+          disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, musts: [...reqDraft.musts, item] })} />
+
+        <div className="review-panel-title" style={{ marginTop: 10 }}>重ね掛け枠（1種類のみ、あるだけ積む対象）</div>
+        {reqDraft.stackable ? (
+          <div className="ocr-sync-old-row">
+            <span>{reqDraft.stackable.skill}{reqDraft.stackable.depthHint ? `（${reqDraft.stackable.depthHint}）` : ""}</span>
+            <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, stackable: null })}>削除</button>
+          </div>
+        ) : (
+          <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="重ね掛け" eligibleFilter={isStackableEligibleBase}
+            disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, stackable: item })} />
+        )}
+
+        <div className="review-panel-title" style={{ marginTop: 10 }}>有ったら嬉しい（上から優先されます）</div>
+        {reqDraft.nice.map((n, i) => (
+          <div key={i} className="ocr-sync-old-row">
+            <span>#{i + 1} {n.skill}{n.depthHint ? `（${n.depthHint}）` : ""}</span>
+            <span>
+              {i > 0 && <button className="card-edit-btn" onClick={() => {
+                const arr = [...reqDraft.nice]; [arr[i-1], arr[i]] = [arr[i], arr[i-1]]; setReqDraft({ ...reqDraft, nice: arr });
+              }}>↑</button>}
+              {i < reqDraft.nice.length - 1 && <button className="card-edit-btn" onClick={() => {
+                const arr = [...reqDraft.nice]; [arr[i+1], arr[i]] = [arr[i], arr[i+1]]; setReqDraft({ ...reqDraft, nice: arr });
+              }}>↓</button>}
+              <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, nice: reqDraft.nice.filter((_, j) => j !== i) })}>削除</button>
+            </span>
+          </div>
+        ))}
+        <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={MASTER_EFFECT_OPTIONS} label="有ったら嬉しい"
+          disabledValues={disabled} disabledCategories={disabledCats} onAdd={(item) => setReqDraft({ ...reqDraft, nice: [...reqDraft.nice, item] })} />
+
+        <div className="review-panel-title" style={{ marginTop: 10 }}>除外条件（該当するデメリットを持つ遺物を丸ごと対象外にします）</div>
+        {reqDraft.exclude.map((ex, i) => (
+          <div key={i} className="ocr-sync-old-row">
+            <span>{ex.skill}{ex.depthHint ? `（${ex.depthHint}）` : ""}</span>
+            <button className="card-edit-btn danger" onClick={() => setReqDraft({ ...reqDraft, exclude: reqDraft.exclude.filter((_, j) => j !== i) })}>削除</button>
+          </div>
+        ))}
+        <DepthAwareSkillAdder MASTER_EFFECT_OPTIONS={DEMERIT_OPTIONS_BUILD} label="除外"
+          disabledValues={disabled} disabledCategories={disabledCats}
+          onAdd={(item) => setReqDraft({ ...reqDraft, exclude: [...reqDraft.exclude, item] })} />
+
+        <div className="card-edit-row" style={{ marginTop: 12 }}>
+          <button className="data-btn" onClick={saveReq} disabled={!reqDraft.name.trim()}>保存</button>
+          <button className="data-btn secondary" onClick={cancelEdit}>キャンセル</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="filter-row">
+        <button className="data-btn" onClick={startNew}>新しいビルド要件を作る</button>
+      </div>
+      {buildRequirements.length === 0 && <div className="chalice-note">まだビルド要件がありません。</div>}
+      {buildRequirements.map((req) => {
+        const chalice = proposalChalice[req.id] || { char: CHALICE_ORDER[0], chaliceLabel: "" };
+        const opts = [...(CHALICES2[chalice.char] || []), ...(CHALICES2["共通"] || [])];
+        return (
+          <div key={req.id} className="ocr-sync-group">
+            <div className="review-panel-skill">{req.name}</div>
+            <div className="chalice-note" style={{ marginTop: 2 }}>
+              必須{req.musts.length}件／重ね掛け{req.stackable ? "1件" : "なし"}／有ったら嬉しい{req.nice.length}件／除外{req.exclude.length}件
+            </div>
+            <div className="filter-row" style={{ marginTop: 6 }}>
+              <select className="select-input" value={chalice.char} onChange={(e) => setProposalChalice({ ...proposalChalice, [req.id]: { char: e.target.value, chaliceLabel: "" } })}>
+                {CHALICE_ORDER.filter((c) => CHALICES2[c]).map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select className="select-input" value={chalice.chaliceLabel} onChange={(e) => setProposalChalice({ ...proposalChalice, [req.id]: { ...chalice, chaliceLabel: e.target.value } })}>
+                <option value="">盃を選ぶ…</option>
+                {opts.map(([n]) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="card-edit-row" style={{ marginTop: 6 }}>
+              <button className="card-edit-btn review" disabled={!chalice.chaliceLabel} onClick={() => runProposal(req)}>提案する</button>
+              <button className="card-edit-btn" onClick={() => startEditReq(req)}>編集</button>
+              <button className="card-edit-btn danger" onClick={() => deleteReq(req.id)}>削除</button>
+            </div>
+            {proposalResult && proposalResult.reqId === req.id && (
+              <ProposalResultView
+                result={proposalResult.result}
+                req={req}
+                tieChoiceIndex={tieChoiceIndex}
+                setTieChoiceIndex={setTieChoiceIndex}
+                onConfirmTie={(chosenCombo) => {
+                  const log = { at: new Date().toISOString(), musts: req.musts.map((m) => m.skill) };
+                  const nextReq = { ...req, tieLog: [...(req.tieLog || []), log] };
+                  setBuildRequirementsPersist(buildRequirements.map((r) => (r.id === req.id ? nextReq : r)));
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProposalResultView({ result, req, tieChoiceIndex, setTieChoiceIndex, onConfirmTie }) {
+  if (!result.ok) {
+    return (
+      <div className="chalice-note" style={{ marginTop: 8, color: "#C08A7D" }}>
+        提案できませんでした（{result.category}）：{result.reason}
+      </div>
+    );
+  }
+  const combos = result.best.combos;
+  const chosen = combos[Math.min(tieChoiceIndex, combos.length - 1)];
+  const { assign, combo } = chosen;
+  const { filled, emptySlotIdx } = fillRemainingSlots(assign, combo, req.musts, req.stackable, req.nice, result.usable, result.slots);
+  return (
+    <div style={{ marginTop: 8 }}>
+      {combos.length > 1 && (
+        <div className="chalice-note">
+          同じ良さの組み合わせが{combos.length}件あります。候補を切り替えて選んでください。
+          <div className="card-edit-row" style={{ marginTop: 4 }}>
+            {combos.length > 1 && tieChoiceIndex > 0 && (
+              <button className="card-edit-btn" onClick={() => setTieChoiceIndex(tieChoiceIndex - 1)}>前の候補</button>
+            )}
+            <span>{tieChoiceIndex + 1} / {combos.length}</span>
+            {tieChoiceIndex < combos.length - 1 && (
+              <button className="card-edit-btn" onClick={() => setTieChoiceIndex(tieChoiceIndex + 1)}>次の候補</button>
+            )}
+            <button className="card-edit-btn review" onClick={() => onConfirmTie(chosen)}>この候補で確定</button>
+          </div>
+        </div>
+      )}
+      <ul className="review-panel-list">
+        {req.musts.map((m, i) => {
+          const slot = result.slots[assign[i]];
+          const relic = combo[i];
+          const allSkills = relic.skills.map((s) => skillFullText(s));
+          return (
+            <li key={i}>
+              【{slot.color}・{slot.depth}】必須：{m.skill}　｜　{allSkills.join(" / ")}
+            </li>
+          );
+        })}
+        {filled.map((f, i) => {
+          const slot = result.slots[f.slotIdx];
+          const allSkills = f.relic.skills.map((s) => skillFullText(s));
+          return (
+            <li key={`f${i}`}>
+              【{slot.color}・{slot.depth}】{f.reason}　｜　{allSkills.join(" / ")}
+            </li>
+          );
+        })}
+        {emptySlotIdx.map((si) => {
+          const slot = result.slots[si];
+          return <li key={`e${si}`}>【{slot.color}・{slot.depth}】空き枠（該当する候補が見つかりませんでした）</li>;
+        })}
+      </ul>
+    </div>
+  );
+}
+
+
 // 描画中に予期しないエラーが起きても、画面が真っ白になったまま固まるのではなく、
 // エラー内容とリロード導線を見せる（データ自体は各操作のたびに保存済みなので失われない）
 class RelicVaultErrorBoundary extends React.Component {
@@ -3444,6 +4174,16 @@ const GLOBAL_CSS = `
   color: #B9974A;
   letter-spacing: 0.04em;
   margin-bottom: 10px;
+}
+.build-toggle-btn {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 12.5px;
+  color: #B9974A;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 .select-input {
   font-family: 'Zen Kaku Gothic New', sans-serif;
@@ -3833,6 +4573,19 @@ const GLOBAL_CSS = `
   text-align: left;
 }
 .searchable-listbox-item:hover { background: rgba(185,151,74,0.12); }
+.searchable-listbox-item.disabled {
+  color: #5A5142;
+  cursor: default;
+}
+.searchable-listbox-item.disabled:hover { background: transparent; }
+.searchable-listbox-selected-tag {
+  font-size: 10px;
+  color: #8C7F68;
+  margin-left: 8px;
+  border: 1px solid #4A4636;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
 .searchable-listbox-count {
   font-size: 10px;
   color: #6E6350;
