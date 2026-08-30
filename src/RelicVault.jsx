@@ -442,6 +442,17 @@ function syncOcrImport(ocrRows, currentRawData) {
   const sigOf = (row) => computeSignature(row[0], row[1], row[2], row[3], row[4], row[5], row[6]);
   const hasInfo = (row) => (row[8] && String(row[8]).trim()) || row[9] === true || row[10] === true;
 
+  // メモの合成：片方が空ならもう片方をそのまま採用。両方あって内容が同じならそのまま。
+  // 両方あって内容が違う場合は自動で選ばず、暫定的に旧を採用した上で要確認に回す。
+  function mergeNote(oldNote, newNote) {
+    const on = (oldNote || "").trim();
+    const nn = (newNote || "").trim();
+    if (!on) return { merged: newNote || "", conflict: false };
+    if (!nn) return { merged: oldNote || "", conflict: false };
+    if (on === nn) return { merged: oldNote || "", conflict: false };
+    return { merged: oldNote || "", conflict: true };
+  }
+
   const oldBySig = new Map();
   currentRawData.forEach((row) => {
     const sig = sigOf(row);
@@ -457,35 +468,46 @@ function syncOcrImport(ocrRows, currentRawData) {
 
   const finalRows = [];
   const ambiguousGroups = []; // [{sig, sampleRow, newRowIndexes:[finalRows内のindex], oldCandidatesAll, oldCandidatesWithInfo}]
+  const noteConflicts = []; // [{sig, oldNote, newNote, finalRowIndex}]
   let uniqueCarriedCount = 0;
   let brandNewCount = 0;
-  let autoResolvedCount = 0; // 複数対複数で個体は決まらないが、旧候補に引き継ぐ価値のある情報が無く自動解決したもの
+  let autoResolvedCount = 0; // 複数対複数で個体は決まらないが、双方の候補に引き継ぐ価値のある情報が無く自動解決したもの
 
   newBySig.forEach((newRows, sig) => {
     const oldRows = oldBySig.get(sig) || [];
     if (oldRows.length === 0) {
+      // 新規：引き継ぐ古い情報が無いので、新しい側が持つ値（note/fav/sell）をそのまま使う
       newRows.forEach((row) => {
         const r = [...row];
-        r[7] = genUuid(); r[8] = ""; r[9] = false; r[10] = false;
+        r[7] = genUuid();
         finalRows.push(r);
         brandNewCount++;
       });
     } else if (oldRows.length === 1 && newRows.length === 1) {
+      // 1対1：双方の情報を合成する（fav/sellはOR、noteは片方優先・食い違いは要確認）
       const r = [...newRows[0]];
-      r[7] = oldRows[0][7]; r[8] = oldRows[0][8]; r[9] = oldRows[0][9]; r[10] = oldRows[0][10];
+      r[7] = oldRows[0][7];
+      r[9] = oldRows[0][9] === true || newRows[0][9] === true;
+      r[10] = oldRows[0][10] === true || newRows[0][10] === true;
+      const { merged, conflict } = mergeNote(oldRows[0][8], newRows[0][8]);
+      r[8] = merged;
       finalRows.push(r);
+      const finalRowIndex = finalRows.length - 1;
+      if (conflict) noteConflicts.push({ sig, oldNote: oldRows[0][8], newNote: newRows[0][8], finalRowIndex });
       uniqueCarriedCount++;
     } else {
+      // 複数対複数：個体は特定できないため、各行はひとまず新しい側自身の値を保つ（旧候補は手動での割り当てでのみ反映する）
       const newRowIndexes = [];
       newRows.forEach((row) => {
         const r = [...row];
-        r[7] = genUuid(); r[8] = ""; r[9] = false; r[10] = false;
+        r[7] = genUuid();
         finalRows.push(r);
         newRowIndexes.push(finalRows.length - 1);
       });
       const oldCandidatesWithInfo = oldRows.filter(hasInfo);
-      if (oldCandidatesWithInfo.length === 0) {
-        // 旧候補の誰も引き継ぐ価値のある情報を持っていないので、聞かずに新規のまま自動解決する
+      const newHasInfo = newRows.some(hasInfo);
+      if (oldCandidatesWithInfo.length === 0 && !newHasInfo) {
+        // 双方の候補の誰も引き継ぐ価値のある情報を持っていないので、聞かずに新規のまま自動解決する
         autoResolvedCount += newRows.length;
       } else {
         ambiguousGroups.push({ sig, sampleRow: newRows[0], newRowIndexes, oldCandidatesAll: oldRows, oldCandidatesWithInfo });
@@ -506,6 +528,7 @@ function syncOcrImport(ocrRows, currentRawData) {
   return {
     finalRows,
     ambiguousGroups,
+    noteConflicts,
     vanishingWithInfo,
     summary: {
       before: currentRawData.length,
@@ -514,6 +537,7 @@ function syncOcrImport(ocrRows, currentRawData) {
       uniqueCarried: uniqueCarriedCount,
       autoResolved: autoResolvedCount,
       ambiguous: ambiguousGroups.reduce((s, g) => s + g.newRowIndexes.length, 0),
+      noteConflicts: noteConflicts.length,
       vanishedSilent: vanishedSilentCount,
       vanishedWithInfo: vanishingWithInfo.length,
     },
@@ -1645,6 +1669,26 @@ function RelicVaultInner() {
   const [statMin, setStatMin] = useState(0);
   const [statUsePercent, setStatUsePercent] = useState(false); // ％基準で絞り込み/並び替え
 
+  // 絞り込み条件を全部まとめて解除する
+  const resetAllFilters = useCallback(() => {
+    setSlotFilter(new Set());
+    setColorFilter(new Set());
+    setDepthFilter(new Set());
+    setKeyword("");
+    setFavOnly(false);
+    setSellOnly(false);
+    setSellCandidateFilter("");
+    setShowPendingOnly(false);
+    setShowNeededOnly(false);
+    setImportanceMin("");
+    setImportanceMax("");
+    setSelectedEffects([]);
+    setStatCategory("none");
+    setStatBase("all");
+    setStatMin(0);
+    setStatUsePercent(false);
+  }, []);
+
   /* 永続化：ビルド枠・重要度調整・遺物データ本体 */
   useEffect(() => {
     (async () => {
@@ -1734,6 +1778,7 @@ function RelicVaultInner() {
   const [ocrSyncResult, setOcrSyncResult] = useState(null); // syncOcrImportの結果（確認画面用）
   const [ocrSyncAssignments, setOcrSyncAssignments] = useState({}); // {groupSig: {oldIndex: finalRowsIndex}}
   const [ocrSyncKeepVanished, setOcrSyncKeepVanished] = useState({}); // {vanishIndex: true} 消失予定だが残すと選んだもの
+  const [ocrNoteConflictChoices, setOcrNoteConflictChoices] = useState({}); // {finalRowIndex: "old"|"new"} メモ食い違いの選択
   const ocrSyncFileInputRef = React.useRef(null);
 
   const runOcrSyncAnalyze = useCallback((jsonText) => {
@@ -1780,6 +1825,13 @@ function RelicVaultInner() {
         }
       });
     });
+    // メモが食い違っていたものについて、「新メモを使う」を選んだ分だけ上書きする（既定は旧メモのまま）
+    ocrSyncResult.noteConflicts.forEach((c) => {
+      if (ocrNoteConflictChoices[c.finalRowIndex] === "new") {
+        const target = rows[c.finalRowIndex];
+        if (target) { rows[c.finalRowIndex] = [...target]; rows[c.finalRowIndex][8] = c.newNote; }
+      }
+    });
     // 「残す」を選んだ消失予定行を追加で戻す
     ocrSyncResult.vanishingWithInfo.forEach((row, i) => {
       if (ocrSyncKeepVanished[i]) rows.push(row);
@@ -1789,8 +1841,9 @@ function RelicVaultInner() {
     setImportMsg(`OCR同期を反映しました（${rows.length.toLocaleString()}件）`);
     setOcrSyncResult(null);
     setOcrSyncText("");
+    setOcrNoteConflictChoices({});
     setShowOcrSync(false);
-  }, [ocrSyncResult, ocrSyncAssignments, ocrSyncKeepVanished]);
+  }, [ocrSyncResult, ocrSyncAssignments, ocrSyncKeepVanished, ocrNoteConflictChoices]);
 
   const handleExportData = useCallback(() => {
     downloadJson(`relics_export_${jstTimestamp()}.json`, toExportFormat(rawData));
@@ -2883,6 +2936,7 @@ function foldGenericLayers(rows) {
                 <li>自動削除（売却フラグのみ／情報なし）：{ocrSyncResult.summary.vanishedSilent.toLocaleString()}件</li>
                 <li className="ocr-sync-summary-gap">要確認</li>
                 <li>・複数と内容完全一致、引き継ぎ判断が必要：{ocrSyncResult.summary.ambiguous.toLocaleString()}件</li>
+                <li>・メモの内容が食い違っている：{ocrSyncResult.summary.noteConflicts.toLocaleString()}件</li>
                 <li>・削除項目だがnote・お気に入りあり：{ocrSyncResult.summary.vanishedWithInfo.toLocaleString()}件</li>
               </ul>
 
@@ -2919,9 +2973,13 @@ function foldGenericLayers(rows) {
                             }}
                           >
                             <option value="">引き継がない</option>
-                            {g.newRowIndexes.map((fi, ni) => (
-                              <option key={fi} value={fi}>新規行{ni + 1}へ引き継ぐ</option>
-                            ))}
+                            {g.newRowIndexes.map((fi, ni) => {
+                              const nr = ocrSyncResult.finalRows[fi];
+                              const nrInfo = [nr[9] ? "★" : "", nr[8] ? `メモ「${nr[8]}」` : ""].filter(Boolean).join(" ");
+                              return (
+                                <option key={fi} value={fi}>新規行{ni + 1}へ引き継ぐ{nrInfo ? `（この行は元々${nrInfo}を持つ）` : ""}</option>
+                              );
+                            })}
                           </select>
                         </div>
                       ))}
@@ -2940,9 +2998,38 @@ function foldGenericLayers(rows) {
                         checked={!!ocrSyncKeepVanished[i]}
                         onChange={(e) => setOcrSyncKeepVanished((prev) => ({ ...prev, [i]: e.target.checked }))}
                       />
-                      {row[0]}：{row[9] ? "★お気に入り " : ""}{row[8] ? `メモ「${row[8]}」` : ""}（チェックすると削除せず残します）
+                      <span>
+                        <strong>{row[0]}</strong>：{row[9] ? "★お気に入り " : ""}{row[8] ? `メモ「${row[8]}」` : ""}（チェックすると削除せず残します）
+                        <div className="ocr-sync-group-content">{formatRowSkillsForReview(row)}</div>
+                      </span>
                     </label>
                   ))}
+                </>
+              )}
+
+              {ocrSyncResult.noteConflicts.length > 0 && (
+                <>
+                  <div className="review-panel-title" style={{ marginTop: 12 }}>要確認：メモの内容が食い違っている遺物（既定は旧メモを採用）</div>
+                  {ocrSyncResult.noteConflicts.map((c, i) => {
+                    const row = ocrSyncResult.finalRows[c.finalRowIndex];
+                    const choice = ocrNoteConflictChoices[c.finalRowIndex] || "old";
+                    return (
+                      <div key={i} className="ocr-sync-group">
+                        <div className="ocr-sync-group-title">{row[0]}</div>
+                        <div className="ocr-sync-group-content">{formatRowSkillsForReview(row)}</div>
+                        <label className="ocr-sync-vanish-row">
+                          <input type="radio" name={`noteconflict-${i}`} checked={choice === "old"}
+                            onChange={() => setOcrNoteConflictChoices((prev) => ({ ...prev, [c.finalRowIndex]: "old" }))} />
+                          旧メモを使う：「{c.oldNote}」
+                        </label>
+                        <label className="ocr-sync-vanish-row">
+                          <input type="radio" name={`noteconflict-${i}`} checked={choice === "new"}
+                            onChange={() => setOcrNoteConflictChoices((prev) => ({ ...prev, [c.finalRowIndex]: "new" }))} />
+                          新メモを使う：「{c.newNote}」
+                        </label>
+                      </div>
+                    );
+                  })}
                 </>
               )}
 
@@ -3036,6 +3123,10 @@ function foldGenericLayers(rows) {
             <Trash2 size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
             売却フラグ済み
           </Chip>
+        </div>
+
+        <div className="filter-row">
+          <button className="card-edit-btn" onClick={resetAllFilters}>絞り込みをリセット</button>
         </div>
 
         <div className="filter-row">
@@ -3179,7 +3270,7 @@ function foldGenericLayers(rows) {
                     className={`build-tab proposal${activeBuildId === "__proposal__" ? " active" : ""}`}
                     onClick={() => setActiveBuildId("__proposal__")}
                   >
-                    提案中（{proposalBuildObject.slots.filter(Boolean).length}/6）
+                    提案中
                   </button>
                 )}
                 {buildList.map((b) => (
