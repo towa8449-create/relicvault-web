@@ -438,9 +438,10 @@ function formatRelicSkillsForReview(relic) {
   return parts.length ? parts.join(" ／ ") : "（スキルなし）";
 }
 
-function syncOcrImport(ocrRows, currentRawData) {
+function syncOcrImport(ocrRows, currentRawData, reviewStatusMap) {
   const sigOf = (row) => computeSignature(row[0], row[1], row[2], row[3], row[4], row[5], row[6]);
-  const hasInfo = (row) => (row[8] && String(row[8]).trim()) || row[9] === true || row[10] === true;
+  // note/fav/sellに加え、保留・必要（審査ステータス、別の場所に保存されているためidで参照する）も「情報あり」とみなす
+  const hasInfo = (row) => (row[8] && String(row[8]).trim()) || row[9] === true || row[10] === true || !!(reviewStatusMap && reviewStatusMap[row[7]]);
 
   // メモの合成：片方が空ならもう片方をそのまま採用。両方あって内容が同じならそのまま。
   // 両方あって内容が違う場合は自動で選ばず、暫定的に旧を採用した上で要確認に回す。
@@ -1252,6 +1253,19 @@ function fillRemainingSlots(assign, combo, musts, stackable, nice, usable, slots
     });
   }
 
+  // 重ね掛け候補が複数（同tier）ある時、有ったら嬉しいへの該当有無で優先順位を付ける
+  function niceScoreOf(relic, excludeSkill) {
+    let best = -1;
+    nice.forEach((n, idx) => {
+      if (n.skill === excludeSkill) return;
+      if (relic.skills.some((s) => skillBaseName(s) === n.skill)) {
+        const score = nice.length - idx;
+        if (score > best) best = score;
+      }
+    });
+    return best;
+  }
+
   if (stackable) {
     const tiers = tiersForBase(stackable.skill, stackable.depthHint);
     const isTrueStack = tiers.length > 0 && tiers[0].entry.stackable === true;
@@ -1260,24 +1274,30 @@ function fillRemainingSlots(assign, combo, musts, stackable, nice, usable, slots
       if (stackable.depthHint && slot.depth !== stackable.depthHint) continue;
       let picked = null;
       if (isTrueStack) {
-        // 真の重ね掛け：毎回、その時点で選べる最高tierを選ぶ（同tier複数枚もあり得る）
+        // 真の重ね掛け：毎回、その時点で選べる最高tierを選ぶ（同tierの中では有ったら嬉しいへの該当を優先）
         const cands = usable.filter((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && !usedRelicIds.has(r.id) &&
           !violatesCategory(r, slotIdx) &&
           r.skills.some((s) => skillBaseName(s) === stackable.skill));
         if (cands.length) {
           cands.sort((a, b) => {
             const tv = (r) => { const s = r.skills.find((s2) => skillBaseName(s2) === stackable.skill); return s && s.numeric ? s.numeric.value : 0; };
-            return tv(b) - tv(a);
+            const tierDiff = tv(b) - tv(a);
+            if (tierDiff !== 0) return tierDiff;
+            return niceScoreOf(b, stackable.skill) - niceScoreOf(a, stackable.skill);
           });
           picked = cands[0];
         }
       } else {
-        // tier違い共存型：まだ使っていないtierの中で一番高いものから
+        // tier違い共存型：まだ使っていないtierの中で一番高いものから（同tierの中では有ったら嬉しいへの該当を優先）
         for (const t of tiers) {
-          const cand = usable.find((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && !usedRelicIds.has(r.id) &&
+          const cands = usable.filter((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && !usedRelicIds.has(r.id) &&
             !violatesCategory(r, slotIdx) &&
             r.skills.some((s) => skillBaseName(s) === stackable.skill && (s.numeric ? s.numeric.value : 0) === t.value));
-          if (cand) { picked = cand; break; }
+          if (cands.length) {
+            cands.sort((a, b) => niceScoreOf(b, stackable.skill) - niceScoreOf(a, stackable.skill));
+            picked = cands[0];
+            break;
+          }
         }
       }
       if (picked) {
@@ -1788,14 +1808,14 @@ function RelicVaultInner() {
       const json = JSON.parse(jsonText);
       const rows = normalizeImportedData(json);
       if (!rows.length) throw new Error("OCRデータが空です");
-      const result = syncOcrImport(rows, rawData);
+      const result = syncOcrImport(rows, rawData, reviewStatus);
       setOcrSyncResult(result);
       setOcrSyncAssignments({});
       setOcrSyncKeepVanished({});
     } catch (e) {
       setImportErr(`解析失敗：${e.message || "JSON形式を確認してください"}`);
     }
-  }, [rawData]);
+  }, [rawData, reviewStatus]);
 
   const handleOcrSyncFile = useCallback((file) => {
     const reader = new FileReader();
@@ -2959,6 +2979,8 @@ function foldGenericLayers(rows) {
                             旧候補{oi + 1}：
                             {old[9] ? "★お気に入り " : ""}
                             {old[10] ? "売却予定 " : ""}
+                            {reviewStatus[old[7]] === "pending" ? "保留 " : ""}
+                            {reviewStatus[old[7]] === "needed" ? "必要 " : ""}
                             {old[8] ? `メモ「${old[8]}」` : ""}
                           </span>
                           <select
@@ -2990,7 +3012,7 @@ function foldGenericLayers(rows) {
 
               {ocrSyncResult.vanishingWithInfo.length > 0 && (
                 <>
-                  <div className="review-panel-title" style={{ marginTop: 12 }}>要確認：note・お気に入りが付いたまま消える遺物</div>
+                  <div className="review-panel-title" style={{ marginTop: 12 }}>要確認：note・お気に入り・保留/必要が付いたまま消える遺物</div>
                   {ocrSyncResult.vanishingWithInfo.map((row, i) => (
                     <label key={i} className="ocr-sync-vanish-row">
                       <input
@@ -2999,7 +3021,11 @@ function foldGenericLayers(rows) {
                         onChange={(e) => setOcrSyncKeepVanished((prev) => ({ ...prev, [i]: e.target.checked }))}
                       />
                       <span>
-                        <strong>{row[0]}</strong>：{row[9] ? "★お気に入り " : ""}{row[8] ? `メモ「${row[8]}」` : ""}（チェックすると削除せず残します）
+                        <strong>{row[0]}</strong>：
+                        {row[9] ? "★お気に入り " : ""}
+                        {reviewStatus[row[7]] === "pending" ? "保留 " : ""}
+                        {reviewStatus[row[7]] === "needed" ? "必要 " : ""}
+                        {row[8] ? `メモ「${row[8]}」` : ""}（チェックすると削除せず残します）
                         <div className="ocr-sync-group-content">{formatRowSkillsForReview(row)}</div>
                       </span>
                     </label>
