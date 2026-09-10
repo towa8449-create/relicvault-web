@@ -1347,6 +1347,33 @@ function lookupStackable(skillText, depth) {
   return entry ? entry.stackable : null;
 }
 
+// 遺物が持つ全スキルが「重ね掛け不可」（他の効果とも、同名の効果同士とも積めない）かどうか
+function isFullyNonStackable(relic) {
+  return relic.skills.every((s) => lookupStackable(skillFullText(s), relic.depth) !== true);
+}
+// 「出撃時の武器の戦技を「〇〇」にする」を持つ場合、その戦技名を返す（無ければnull）
+/* ===== 「重ね掛け不可（戦技/魔術/祈祷/キャラ固有）」絞り込み用マスターデータ（EFFECT_TABLEから抽出） ===== */
+const TIER_BREAKDOWN_GEKI = EFFECT_TABLE
+  .map((e) => e.name.match(/^出撃時の武器の戦技を「(.+?)」にする$/))
+  .filter(Boolean).map((m) => m[1]);
+const TIER_BREAKDOWN_MAJUTSU = EFFECT_TABLE
+  .map((e) => e.name.match(/^出撃時の武器の魔術を「(.+?)」にする$/))
+  .filter(Boolean).map((m) => m[1]);
+const TIER_BREAKDOWN_KITOU = EFFECT_TABLE
+  .map((e) => e.name.match(/^出撃時の武器の祈祷を「(.+?)」にする$/))
+  .filter(Boolean).map((m) => m[1]);
+const TIER_BREAKDOWN_CHAR_SKILLS = (() => {
+  const byChar = {};
+  EFFECT_TABLE.forEach((e) => {
+    const m = e.name.match(/^【(.+?)】/);
+    if (!m) return;
+    const charName = m[1];
+    if (!byChar[charName]) byChar[charName] = [];
+    if (!byChar[charName].includes(e.name)) byChar[charName].push(e.name);
+  });
+  return byChar; // { "追跡者": ["【追跡者】...", ...], ... }
+})();
+
 // ビルド内（左スロットから順）で、各遺物の各スキルが実際に発動するかどうかを判定する。
 // ・対象キャラでない【キャラ名】スキルは常に不発動
 // ・戦技/魔術/祈祷/付加/探索の5枠は、同じ枠が既に左のスロットにあれば不発動
@@ -1640,6 +1667,11 @@ function RelicVaultInner() {
   const [sellCandidateFilter, setSellCandidateFilter] = useState(""); // ""=指定なし, "complete", "charMismatch", "partial"
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [showNeededOnly, setShowNeededOnly] = useState(false);
+  // 「重ね掛け不可（戦技/魔術/祈祷/キャラ固有）」の階層絞り込み
+  const [tierCategory, setTierCategory] = useState(""); // "" | "戦技" | "魔術" | "祈祷" | "キャラ固有"
+  const [tierTarget, setTierTarget] = useState(""); // 戦技/魔術/祈祷の技名
+  const [tierChar, setTierChar] = useState(""); // キャラ固有：キャラ名
+  const [tierCharSkill, setTierCharSkill] = useState(""); // キャラ固有：効果名
 
   // ビルド提案エンジン：ビルド要件の保存・編集・提案結果
   const [buildRequirements, setBuildRequirements] = useState([]); // [{id,name,musts,stackable,nice,exclude,tieLog}]
@@ -2304,6 +2336,35 @@ function RelicVaultInner() {
     (r) => !r.sell && reviewStatus[r.id] !== "needed" && reviewStatus[r.id] !== "pending",
     [reviewStatus]
   );
+  // 「重ね掛け不可」階層絞り込み専用：件数表示だけに使う（保留・必要・売却フラグ・お気に入り・noteのどれも無いもの）
+  // 絞り込み結果（一覧表示）そのものには適用しない
+  const isUnprocessedForCountWithNote = useCallback(
+    (r) => isUnprocessedForCount(r) && !r.fav && !(r.note && r.note.trim()),
+    [isUnprocessedForCount]
+  );
+  // 与えられたスキル本文を持ち、かつ重ね掛け不可な遺物の件数
+  const countNonStackableWithSkill = useCallback(
+    (skillText) => RELICS.filter((r) =>
+      isFullyNonStackable(r) &&
+      r.skills.some((s) => skillFullText(s) === skillText) &&
+      isUnprocessedForCountWithNote(r)
+    ).length,
+    [RELICS, isUnprocessedForCountWithNote]
+  );
+  // 入り口1：出撃時の戦技/魔術/祈祷変更（重ね掛け不可・未処理）の合計件数
+  const tierGekiTotalCount = useMemo(() => {
+    const targets = new Set([
+      ...TIER_BREAKDOWN_GEKI.map((n) => `出撃時の武器の戦技を「${n}」にする`),
+      ...TIER_BREAKDOWN_MAJUTSU.map((n) => `出撃時の武器の魔術を「${n}」にする`),
+      ...TIER_BREAKDOWN_KITOU.map((n) => `出撃時の武器の祈祷を「${n}」にする`),
+    ]);
+    return RELICS.filter((r) => isFullyNonStackable(r) && r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
+  }, [RELICS, isUnprocessedForCountWithNote]);
+  // 入り口2：キャラ固有効果（重ね掛け不可・未処理）の合計件数
+  const tierCharTotalCount = useMemo(() => {
+    const targets = new Set(Object.values(TIER_BREAKDOWN_CHAR_SKILLS).flat());
+    return RELICS.filter((r) => isFullyNonStackable(r) && r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
+  }, [RELICS, isUnprocessedForCountWithNote]);
   const completeUnresolvedCount = useMemo(
     () => RELICS.filter((r) => isCompleteDominated(r) && isUnprocessedForCount(r)).length,
     [RELICS, isCompleteDominated, isUnprocessedForCount]
@@ -2736,12 +2797,25 @@ function foldGenericLayers(rows) {
       if (depthFilter.size > 0 && !r.special && !depthFilter.has(r.depth)) return false;
       if (favOnly && !r.fav) return false;
       if (sellOnly && !r.sell) return false;
-      if (sellCandidateFilter && (r.sell || reviewStatus[r.id] === "needed" || reviewStatus[r.id] === "pending")) return false;
+      // 「重ね掛け不可」階層絞り込みは、他の売却候補と違い保留・note記載済みも含めて全部表示する
+      const isTierFilter = sellCandidateFilter === "tierGeki" || sellCandidateFilter === "tierChar";
+      if (sellCandidateFilter && !isTierFilter && (r.sell || reviewStatus[r.id] === "needed" || reviewStatus[r.id] === "pending")) return false;
       if (sellCandidateFilter === "complete" && !isCompleteDominated(r)) return false;
       if (sellCandidateFilter === "charMismatch" && !hasCharMismatchCombo(r)) return false;
       if (sellCandidateFilter === "magicNoAptitude" && !hasMagicNoAptitudeCombo(r)) return false;
       if (sellCandidateFilter === "prayerNoAptitude" && !hasPrayerNoAptitudeCombo(r)) return false;
       if (sellCandidateFilter === "partial" && !isPartialOnlyDominated(r)) return false;
+      if (sellCandidateFilter === "tierGeki") {
+        const target = tierCategory && tierTarget ? `出撃時の武器の${tierCategory}を「${tierTarget}」にする` : "";
+        if (!target) return false; // 末端まで選び終えていなければ何も表示しない
+        if (!isFullyNonStackable(r)) return false;
+        if (!r.skills.some((s) => skillFullText(s) === target)) return false;
+      }
+      if (sellCandidateFilter === "tierChar") {
+        if (!tierCharSkill) return false; // 末端まで選び終えていなければ何も表示しない
+        if (!isFullyNonStackable(r)) return false;
+        if (!r.skills.some((s) => skillFullText(s) === tierCharSkill)) return false;
+      }
       if (showPendingOnly && reviewStatus[r.id] !== "pending") return false;
       if (showNeededOnly && reviewStatus[r.id] !== "needed") return false;
       if (importanceMin !== "" && relicImportanceMap.get(r.id) < Number(importanceMin)) return false;
@@ -2774,7 +2848,7 @@ function foldGenericLayers(rows) {
       list = [...list].sort((a, b) => tierOf(a) - tierOf(b) || (relicImportanceMap.get(a.id) - relicImportanceMap.get(b.id)));
     }
     return list;
-  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, isPartialOnlyDominated, showPendingOnly, showNeededOnly, reviewStatus, selectedEffects, importanceMin, importanceMax, relicImportanceMap]);
+  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, isPartialOnlyDominated, showPendingOnly, showNeededOnly, reviewStatus, selectedEffects, importanceMin, importanceMax, relicImportanceMap, tierCategory, tierTarget, tierChar, tierCharSkill]);
 
   // 「固有」が色フィルタに含まれている時だけ、未所持の固有遺物を「幽霊カード」として一覧の末尾に追加する。
   // RELICSには一切加えないため、審査・売却判定・重要度計算・ビルドの対象には一切ならない。
@@ -3130,15 +3204,60 @@ function foldGenericLayers(rows) {
           <select
             className={`select-input sell-candidate-select${sellCandidateFilter ? " active" : ""}`}
             value={sellCandidateFilter}
-            onChange={(e) => setSellCandidateFilter(e.target.value)}
+            onChange={(e) => {
+              setSellCandidateFilter(e.target.value);
+              if (e.target.value !== "tierGeki" && e.target.value !== "tierChar") { setTierCategory(""); setTierTarget(""); setTierChar(""); setTierCharSkill(""); }
+            }}
           >
             <option value="">売却候補で絞り込む ▾</option>
             <option value="complete">売却候補：完全上位互換（{completeUnresolvedCount.toLocaleString()}件）</option>
             <option value="charMismatch">売却候補：キャラ不適合の出撃時変更（{charMismatchUnresolvedCount.toLocaleString()}件）</option>
             <option value="magicNoAptitude">売却候補：魔術適性なし（{magicNoAptitudeUnresolvedCount.toLocaleString()}件）</option>
             <option value="prayerNoAptitude">売却候補：祈祷適性なし（{prayerNoAptitudeUnresolvedCount.toLocaleString()}件）</option>
+            <option value="tierGeki">売却候補：出撃時の戦技/魔術/祈祷変更で未審査（{tierGekiTotalCount.toLocaleString()}件）</option>
+            <option value="tierChar">売却候補：キャラ固有効果で未審査（{tierCharTotalCount.toLocaleString()}件）</option>
             <option value="partial">売却候補：その他上位互換（{partialUnresolvedCount.toLocaleString()}件、精度に注意）</option>
           </select>
+          {sellCandidateFilter === "tierGeki" && (
+            <>
+              <select
+                className="select-input"
+                value={tierCategory}
+                onChange={(e) => { setTierCategory(e.target.value); setTierTarget(""); }}
+              >
+                <option value="">種類を選ぶ ▾</option>
+                <option value="戦技">戦技</option>
+                <option value="魔術">魔術</option>
+                <option value="祈祷">祈祷</option>
+              </select>
+
+              {tierCategory && (
+                <select className="select-input" value={tierTarget} onChange={(e) => setTierTarget(e.target.value)}>
+                  <option value="">技名を選ぶ ▾</option>
+                  {(tierCategory === "戦技" ? TIER_BREAKDOWN_GEKI : tierCategory === "魔術" ? TIER_BREAKDOWN_MAJUTSU : TIER_BREAKDOWN_KITOU).map((name) => {
+                    const skillText = `出撃時の武器の${tierCategory}を「${name}」にする`;
+                    return <option key={name} value={name}>{name}（{countNonStackableWithSkill(skillText).toLocaleString()}件）</option>;
+                  })}
+                </select>
+              )}
+            </>
+          )}
+          {sellCandidateFilter === "tierChar" && (
+            <>
+              <select className="select-input" value={tierChar} onChange={(e) => { setTierChar(e.target.value); setTierCharSkill(""); }}>
+                <option value="">キャラを選ぶ ▾</option>
+                {CHALICE_ORDER.filter((c) => TIER_BREAKDOWN_CHAR_SKILLS[c]).map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {tierChar && (
+                <select className="select-input" value={tierCharSkill} onChange={(e) => setTierCharSkill(e.target.value)}>
+                  <option value="">効果名を選ぶ ▾</option>
+                  {(TIER_BREAKDOWN_CHAR_SKILLS[tierChar] || []).map((name) => (
+                    <option key={name} value={name}>{name}（{countNonStackableWithSkill(name).toLocaleString()}件）</option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
           <Chip active={showPendingOnly} onClick={() => setShowPendingOnly((v) => !v)} colorRing="#7FA9C9">
             保留のみ（{pendingCount.toLocaleString()}件）
           </Chip>
@@ -3653,6 +3772,19 @@ function foldGenericLayers(rows) {
                               {dn && <span className="demerit-badge">{dn.display}</span>}
                             </div>
                           )}
+                          {(() => {
+                            const text = n ? n.base : s.text;
+                            const m = text.match(/^出撃時の武器の戦技を「(.+?)」にする$/);
+                            if (!m) return null;
+                            const available = GEKI_AVAILABLE[m[1]] || [];
+                            return (
+                              <div className="geki-available-row" title={`「${m[1]}」を使えるキャラ`}>
+                                {CHALICE_ORDER.map((c) => (
+                                  <span key={c} className={`geki-char${available.includes(c) ? " on" : ""}`}>{c[0]}</span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </li>
                       );
                     })}
@@ -4139,6 +4271,7 @@ const GLOBAL_CSS = `
   border-radius: 6px;
   padding: 6px 8px;
   outline: none;
+  max-width: 100%;
 }
 .select-input:disabled { color: #4A4636; }
 .select-input.sell-candidate-select {
@@ -5139,6 +5272,28 @@ const GLOBAL_CSS = `
   font-weight: 700;
   margin-left: 6px;
   color: #C97A6A;
+}
+.geki-available-row {
+  display: flex;
+  gap: 3px;
+  margin: 3px 0 6px;
+  opacity: 0.75;
+}
+.geki-char {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 9.5px;
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  color: #4A4636;
+  background: rgba(90,81,66,0.10);
+}
+.geki-char.on {
+  color: #9C9178;
+  background: rgba(185,151,74,0.14);
 }
 .range-text {
   color: #6E6350;
