@@ -1347,10 +1347,6 @@ function lookupStackable(skillText, depth) {
   return entry ? entry.stackable : null;
 }
 
-// 遺物が持つ全スキルが「重ね掛け不可」（他の効果とも、同名の効果同士とも積めない）かどうか
-function isFullyNonStackable(relic) {
-  return relic.skills.every((s) => lookupStackable(skillFullText(s), relic.depth) !== true);
-}
 // 「出撃時の武器の戦技を「〇〇」にする」を持つ場合、その戦技名を返す（無ければnull）
 /* ===== 「重ね掛け不可（戦技/魔術/祈祷/キャラ固有）」絞り込み用マスターデータ（EFFECT_TABLEから抽出） ===== */
 const TIER_BREAKDOWN_GEKI = EFFECT_TABLE
@@ -2342,28 +2338,27 @@ function RelicVaultInner() {
     (r) => isUnprocessedForCount(r) && !r.fav && !(r.note && r.note.trim()),
     [isUnprocessedForCount]
   );
-  // 与えられたスキル本文を持ち、かつ重ね掛け不可な遺物の件数
+  // 与えられたスキル本文を持つ遺物の件数（戦技/魔術/祈祷/キャラ固有は元々必ず重ね掛け不可なので、遺物全体の重ね掛け可否は見ない）
   const countNonStackableWithSkill = useCallback(
     (skillText) => RELICS.filter((r) =>
-      isFullyNonStackable(r) &&
       r.skills.some((s) => skillFullText(s) === skillText) &&
       isUnprocessedForCountWithNote(r)
     ).length,
     [RELICS, isUnprocessedForCountWithNote]
   );
-  // 入り口1：出撃時の戦技/魔術/祈祷変更（重ね掛け不可・未処理）の合計件数
+  // 入り口1：出撃時の戦技/魔術/祈祷変更（未処理）の合計件数
   const tierGekiTotalCount = useMemo(() => {
     const targets = new Set([
       ...TIER_BREAKDOWN_GEKI.map((n) => `出撃時の武器の戦技を「${n}」にする`),
       ...TIER_BREAKDOWN_MAJUTSU.map((n) => `出撃時の武器の魔術を「${n}」にする`),
       ...TIER_BREAKDOWN_KITOU.map((n) => `出撃時の武器の祈祷を「${n}」にする`),
     ]);
-    return RELICS.filter((r) => isFullyNonStackable(r) && r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
+    return RELICS.filter((r) => r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
   }, [RELICS, isUnprocessedForCountWithNote]);
-  // 入り口2：キャラ固有効果（重ね掛け不可・未処理）の合計件数
+  // 入り口2：キャラ固有効果（未処理）の合計件数
   const tierCharTotalCount = useMemo(() => {
     const targets = new Set(Object.values(TIER_BREAKDOWN_CHAR_SKILLS).flat());
-    return RELICS.filter((r) => isFullyNonStackable(r) && r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
+    return RELICS.filter((r) => r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
   }, [RELICS, isUnprocessedForCountWithNote]);
   const completeUnresolvedCount = useMemo(
     () => RELICS.filter((r) => isCompleteDominated(r) && isUnprocessedForCount(r)).length,
@@ -2808,12 +2803,10 @@ function foldGenericLayers(rows) {
       if (sellCandidateFilter === "tierGeki") {
         const target = tierCategory && tierTarget ? `出撃時の武器の${tierCategory}を「${tierTarget}」にする` : "";
         if (!target) return false; // 末端まで選び終えていなければ何も表示しない
-        if (!isFullyNonStackable(r)) return false;
         if (!r.skills.some((s) => skillFullText(s) === target)) return false;
       }
       if (sellCandidateFilter === "tierChar") {
         if (!tierCharSkill) return false; // 末端まで選び終えていなければ何も表示しない
-        if (!isFullyNonStackable(r)) return false;
         if (!r.skills.some((s) => skillFullText(s) === tierCharSkill)) return false;
       }
       if (showPendingOnly && reviewStatus[r.id] !== "pending") return false;
