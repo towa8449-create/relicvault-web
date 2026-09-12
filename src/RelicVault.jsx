@@ -1268,7 +1268,9 @@ function buildProposal(requirement, RELICS, importanceOverrides) {
             const m = f.reason.match(/^有ったら嬉しい#(\d+)$/);
             if (m) { const idx = Number(m[1]) - 1; hitSet.add(idx); rankScore += (niceBaseList.length - idx); }
           });
-          const score = [hitSet.size, stackCount, rankScore];
+          // スコアの優先順位：重ね掛けの枚数 → 有ったら嬉しいの該当数 → 順位加重
+          // （必須を満たした上で「重ね掛けの最大化」を主目的とするため、重ね掛け枚数を最優先で比較する）
+          const score = [stackCount, hitSet.size, rankScore];
           const better = !best || score[0] > best.score[0] ||
             (score[0] === best.score[0] && score[1] > best.score[1]) ||
             (score[0] === best.score[0] && score[1] === best.score[1] && score[2] > best.score[2]);
