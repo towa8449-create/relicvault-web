@@ -1082,13 +1082,14 @@ function enumerateAssignments(items, slots) {
       return;
     }
     const item = items[itemIdx];
+    const dh = mustEntryDepthHint(item);
     const triedColorDepth = new Set();
     for (let si = 0; si < slots.length; si++) {
       if (usedSlot[si]) continue;
       const slot = slots[si];
       const key = `${slot.color}|${slot.depth}`;
       if (triedColorDepth.has(key)) continue; // 同条件スロットは1回だけ試す
-      if (item.depthHint && slot.depth !== item.depthHint) continue;
+      if (dh && slot.depth !== dh) continue;
       triedColorDepth.add(key);
       usedSlot[si] = true;
       assignment[itemIdx] = si;
@@ -1099,6 +1100,65 @@ function enumerateAssignments(items, slots) {
   }
   backtrack(0);
   return results;
+}
+
+// 必須の「エントリ」は、通常は{skill,depthHint}をそのまま使うが、
+// まとめ候補（1枚で複数の必須をまとめて満たす案）は {merged:true, items:[必須,必須,...]} という形になる
+function mustEntrySkillNames(entry) {
+  return entry.merged ? entry.items.map((it) => it.skill) : [entry.skill];
+}
+function mustEntryDepthHint(entry) {
+  if (!entry.merged) return entry.depthHint;
+  const hints = entry.items.map((it) => it.depthHint).filter(Boolean);
+  return hints.length ? hints[0] : null;
+}
+function relicHasMustEntry(relic, entry) {
+  const dh = mustEntryDepthHint(entry);
+  if (dh && relic.depth !== dh) return false;
+  return mustEntrySkillNames(entry).every((skillName) => relic.skills.some((s) => skillBaseName(s) === skillName));
+}
+
+// 必須同士で、1枚の遺物にまとめて満たせる組み合わせ（2つ以上）を探す。
+// 計算量を抑えるため、まとめられる案が見つかった時だけ、そこから1つずつ拡張を試す形にする
+// （※今回は「1つのまとめ」だけを候補にする。複数のまとめを同時に組み合わせる案までは対象外）
+function findMustMergeGroups(musts, usable) {
+  const n = musts.length;
+  if (n < 2) return [];
+  function satisfies(r, idxs) {
+    return idxs.every((idx) => {
+      const item = musts[idx];
+      if (item.depthHint && r.depth !== item.depthHint) return false;
+      return r.skills.some((s) => skillBaseName(s) === item.skill);
+    });
+  }
+  let groups = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (usable.some((r) => satisfies(r, [i, j]))) groups.push([i, j]);
+    }
+  }
+  let changed = groups.length > 0;
+  while (changed) {
+    changed = false;
+    const additions = [];
+    groups.forEach((g) => {
+      for (let k = 0; k < n; k++) {
+        if (g.includes(k)) continue;
+        const extended = [...g, k].sort((a, b) => a - b);
+        const key = extended.join(",");
+        if (groups.some((x) => x.join(",") === key) || additions.some((x) => x.join(",") === key)) continue;
+        if (usable.some((r) => satisfies(r, extended))) { additions.push(extended); changed = true; }
+      }
+    });
+    groups = groups.concat(additions);
+  }
+  const seen = new Set();
+  return groups.filter((g) => {
+    const key = g.join(",");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function buildProposal(requirement, RELICS, importanceOverrides) {
@@ -1119,102 +1179,123 @@ function buildProposal(requirement, RELICS, importanceOverrides) {
     }
   }
 
-  const assignments = enumerateAssignments(musts, slots);
-  if (assignments.length === 0) {
-    return { ok: false, category: "A", reason: "必須スキル同士の色・深度が噛み合わず、同じ盃の中に同居できる組み合わせが見つかりません。" };
-  }
-
-  // 各割り当てパターンごとに、該当スロットの候補一覧を作る
-  let totalCombos = 0;
-  const perAssignmentCandidates = [];
-  for (const assign of assignments) {
-    const candLists = [];
-    let feasible = true;
-    for (let i = 0; i < musts.length; i++) {
-      const slot = slots[assign[i]];
-      const cands = usable.filter((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && relicHasReqSkill(r, musts[i]));
-      if (cands.length === 0) { feasible = false; break; }
-      candLists.push(cands);
-    }
-    if (!feasible) continue;
-    const comboCount = candLists.reduce((a, c) => a * c.length, 1);
-    totalCombos += comboCount;
-    perAssignmentCandidates.push({ assign, candLists });
-  }
-
-  if (totalCombos === 0) {
-    return { ok: false, category: "A", reason: "必須スキル同士の色・深度が噛み合わず、同じ盃の中に同居できる組み合わせが見つかりません。" };
-  }
-  if (totalCombos > BUILD_SEARCH_THRESHOLD) {
-    return { ok: false, category: "閾値超過", reason: `試すべき組み合わせが${totalCombos.toLocaleString()}通りあり、多すぎるため計算しません。必須または有ったら嬉しいの数を絞ってください。` };
-  }
+  // 必須をそのまま1つずつ割り当てる案（通常案）に加え、
+  // 1枚の遺物にまとめて満たせる必須の組み合わせがあれば、その分枠を浮かせる案も候補にする
+  const mergeGroups = findMustMergeGroups(musts, usable);
+  const entryVariants = [musts.map((m) => ({ merged: false, skill: m.skill, depthHint: m.depthHint }))];
+  mergeGroups.forEach((g) => {
+    const merged = { merged: true, items: g.map((idx) => musts[idx]) };
+    const remaining = musts
+      .map((m, i) => ({ m, i }))
+      .filter(({ i }) => !g.includes(i))
+      .map(({ m }) => ({ merged: false, skill: m.skill, depthHint: m.depthHint }));
+    entryVariants.push([merged, ...remaining]);
+  });
 
   const niceBaseList = nice.map((n) => n.skill);
-  function niceHitInfo(relic, excludeSkillText) {
-    const hits = [];
-    let stackHit = false;
-    for (const s of relic.skills) {
-      const base = skillBaseName(s);
-      if (base === excludeSkillText) continue;
-      if (stackable && base === stackable.skill && (!stackable.depthHint || relic.depth === stackable.depthHint)) stackHit = true;
-      const idx = niceBaseList.indexOf(base);
-      if (idx !== -1) hits.push(idx);
-    }
-    return { hits, stackHit };
-  }
-
   const startTime = Date.now();
-  let best = null; // { score:[hitSetSize, stackCount, rankScore], combos: [{assign, combo}] }
-  for (const { assign, candLists } of perAssignmentCandidates) {
+  let best = null; // { score, combos: [{assign, combo, entries}] }
+  let anyAssignmentFound = false;
+  let totalCombosAll = 0;
+  let overThreshold = false;
+
+  for (const entries of entryVariants) {
+    if (overThreshold) break;
     if (Date.now() - startTime > BUILD_SEARCH_TIME_LIMIT_MS) break;
-    const idxs = new Array(candLists.length).fill(0);
-    while (true) {
-      const combo = idxs.map((ci, i) => candLists[i][ci]);
-      // カテゴリ枠（戦技/魔術/祈祷/付加/探索）の左右関係チェック：必須スキルが、より左の同カテゴリに潰されていないか
-      let categoryOk = true;
-      const leftmostCat = new Map();
-      for (let i = 0; i < combo.length; i++) {
-        const slotIdx = assign[i];
-        skillCategoriesOf(combo[i]).forEach((cat) => {
-          const cur = leftmostCat.get(cat);
-          if (cur === undefined || slotIdx < cur) leftmostCat.set(cat, slotIdx);
-        });
+    const assignments = enumerateAssignments(entries, slots);
+    if (assignments.length === 0) continue;
+
+    const perAssignmentCandidates = [];
+    for (const assign of assignments) {
+      const candLists = [];
+      let feasible = true;
+      for (let i = 0; i < entries.length; i++) {
+        const slot = slots[assign[i]];
+        const cands = usable.filter((r) => slotColorMatches(slot, r.effectiveColor) && r.depth === slot.depth && relicHasMustEntry(r, entries[i]));
+        if (cands.length === 0) { feasible = false; break; }
+        candLists.push(cands);
       }
-      for (let i = 0; i < musts.length; i++) {
-        const cat = weaponChangeCategory(musts[i].skill);
-        if (!cat) continue;
-        if (leftmostCat.get(cat) !== assign[i]) { categoryOk = false; break; }
-      }
-      if (categoryOk) {
-        const hitSet = new Set();
-        let stackCount = 0;
-        let rankScore = 0;
+      if (!feasible) continue;
+      const comboCount = candLists.reduce((a, c) => a * c.length, 1);
+      totalCombosAll += comboCount;
+      if (totalCombosAll > BUILD_SEARCH_THRESHOLD) { overThreshold = true; break; }
+      perAssignmentCandidates.push({ assign, candLists });
+    }
+    if (overThreshold) break;
+    if (perAssignmentCandidates.length > 0) anyAssignmentFound = true;
+
+    for (const { assign, candLists } of perAssignmentCandidates) {
+      if (Date.now() - startTime > BUILD_SEARCH_TIME_LIMIT_MS) break;
+      const idxs = new Array(candLists.length).fill(0);
+      while (true) {
+        const combo = idxs.map((ci, i) => candLists[i][ci]);
+        // カテゴリ枠（戦技/魔術/祈祷/付加/探索）の左右関係チェック：必須スキルが、より左の同カテゴリに潰されていないか
+        let categoryOk = true;
+        const leftmostCat = new Map();
         for (let i = 0; i < combo.length; i++) {
-          const { hits, stackHit } = niceHitInfo(combo[i], musts[i].skill);
-          hits.forEach((h) => { hitSet.add(h); rankScore += (niceBaseList.length - h); });
-          if (stackHit) stackCount++;
+          const slotIdx = assign[i];
+          skillCategoriesOf(combo[i]).forEach((cat) => {
+            const cur = leftmostCat.get(cat);
+            if (cur === undefined || slotIdx < cur) leftmostCat.set(cat, slotIdx);
+          });
         }
-        const score = [hitSet.size, stackCount, rankScore];
-        const better = !best || score[0] > best.score[0] ||
-          (score[0] === best.score[0] && score[1] > best.score[1]) ||
-          (score[0] === best.score[0] && score[1] === best.score[1] && score[2] > best.score[2]);
-        if (!best || better) {
-          best = { score, combos: [{ assign, combo }] };
-        } else if (score[0] === best.score[0] && score[1] === best.score[1] && score[2] === best.score[2]) {
-          best.combos.push({ assign, combo });
+        for (let i = 0; i < entries.length && categoryOk; i++) {
+          for (const skillName of mustEntrySkillNames(entries[i])) {
+            const cat = weaponChangeCategory(skillName);
+            if (!cat) continue;
+            if (leftmostCat.get(cat) !== assign[i]) { categoryOk = false; break; }
+          }
         }
+        if (categoryOk) {
+          // 必須を割り当てた後、残った枠を重ね掛け→有ったら嬉しいで最後まで充填し、完成形の最終スコアで比べる
+          // （「まとめて枠を浮かせる」案の価値は、浮いた枠に何が入るかまで見ないと正しく測れないため）
+          const { filled } = fillRemainingSlots(assign, combo, entries, stackable, nice, usable, slots);
+          const hitSet = new Set();
+          let stackCount = 0;
+          let rankScore = 0;
+          for (let i = 0; i < combo.length; i++) {
+            const excludeNames = mustEntrySkillNames(entries[i]);
+            for (const s of combo[i].skills) {
+              const base = skillBaseName(s);
+              if (excludeNames.includes(base)) continue;
+              if (stackable && base === stackable.skill && (!stackable.depthHint || combo[i].depth === stackable.depthHint)) stackCount++;
+              const idx = niceBaseList.indexOf(base);
+              if (idx !== -1) { hitSet.add(idx); rankScore += (niceBaseList.length - idx); }
+            }
+          }
+          filled.forEach((f) => {
+            if (f.reason === "重ね掛け") { stackCount++; return; }
+            const m = f.reason.match(/^有ったら嬉しい#(\d+)$/);
+            if (m) { const idx = Number(m[1]) - 1; hitSet.add(idx); rankScore += (niceBaseList.length - idx); }
+          });
+          const score = [hitSet.size, stackCount, rankScore];
+          const better = !best || score[0] > best.score[0] ||
+            (score[0] === best.score[0] && score[1] > best.score[1]) ||
+            (score[0] === best.score[0] && score[1] === best.score[1] && score[2] > best.score[2]);
+          if (!best || better) {
+            best = { score, combos: [{ assign, combo, entries }] };
+          } else if (score[0] === best.score[0] && score[1] === best.score[1] && score[2] === best.score[2]) {
+            best.combos.push({ assign, combo, entries });
+          }
+        }
+        // 次の組み合わせへ
+        let carry = idxs.length - 1;
+        while (carry >= 0) {
+          idxs[carry]++;
+          if (idxs[carry] < candLists[carry].length) break;
+          idxs[carry] = 0; carry--;
+        }
+        if (carry < 0) break;
       }
-      // 次の組み合わせへ
-      let carry = idxs.length - 1;
-      while (carry >= 0) {
-        idxs[carry]++;
-        if (idxs[carry] < candLists[carry].length) break;
-        idxs[carry] = 0; carry--;
-      }
-      if (carry < 0) break;
     }
   }
 
+  if (overThreshold) {
+    return { ok: false, category: "閾値超過", reason: `試すべき組み合わせが多すぎるため計算しません。必須または有ったら嬉しいの数を絞ってください。` };
+  }
+  if (!anyAssignmentFound) {
+    return { ok: false, category: "A", reason: "必須スキル同士の色・深度が噛み合わず、同じ盃の中に同居できる組み合わせが見つかりません。" };
+  }
   if (!best) {
     return { ok: false, category: "A", reason: "必須スキル同士の色・深度、または戦技/魔術/祈祷/付加/探索の同一枠が噛み合わず、同じ盃の中に同居できる組み合わせが見つかりません。" };
   }
