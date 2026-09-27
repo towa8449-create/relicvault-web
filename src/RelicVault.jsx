@@ -2443,6 +2443,23 @@ function RelicVaultInner() {
     const targets = new Set(Object.values(TIER_BREAKDOWN_CHAR_SKILLS).flat());
     return RELICS.filter((r) => r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
   }, [RELICS, isUnprocessedForCountWithNote]);
+  // 中間階層：戦技/魔術/祈祷それぞれの合計未処理件数
+  const countNonStackableWithCategory = useCallback(
+    (category) => {
+      const names = category === "戦技" ? TIER_BREAKDOWN_GEKI : category === "魔術" ? TIER_BREAKDOWN_MAJUTSU : TIER_BREAKDOWN_KITOU;
+      const targets = new Set(names.map((n) => `出撃時の武器の${category}を「${n}」にする`));
+      return RELICS.filter((r) => r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
+    },
+    [RELICS, isUnprocessedForCountWithNote]
+  );
+  // 中間階層：キャラごとの合計未処理件数
+  const countNonStackableWithChar = useCallback(
+    (charName) => {
+      const targets = new Set(TIER_BREAKDOWN_CHAR_SKILLS[charName] || []);
+      return RELICS.filter((r) => r.skills.some((s) => targets.has(skillFullText(s))) && isUnprocessedForCountWithNote(r)).length;
+    },
+    [RELICS, isUnprocessedForCountWithNote]
+  );
   const completeUnresolvedCount = useMemo(
     () => RELICS.filter((r) => isCompleteDominated(r) && isUnprocessedForCount(r)).length,
     [RELICS, isCompleteDominated, isUnprocessedForCount]
@@ -3302,9 +3319,9 @@ function foldGenericLayers(rows) {
                 onChange={(e) => { setTierCategory(e.target.value); setTierTarget(""); }}
               >
                 <option value="">種類を選ぶ ▾</option>
-                <option value="戦技">戦技</option>
-                <option value="魔術">魔術</option>
-                <option value="祈祷">祈祷</option>
+                <option value="戦技">戦技（{countNonStackableWithCategory("戦技").toLocaleString()}件）</option>
+                <option value="魔術">魔術（{countNonStackableWithCategory("魔術").toLocaleString()}件）</option>
+                <option value="祈祷">祈祷（{countNonStackableWithCategory("祈祷").toLocaleString()}件）</option>
               </select>
 
               {tierCategory && (
@@ -3312,7 +3329,7 @@ function foldGenericLayers(rows) {
                   <option value="">技名を選ぶ ▾</option>
                   {(tierCategory === "戦技" ? TIER_BREAKDOWN_GEKI : tierCategory === "魔術" ? TIER_BREAKDOWN_MAJUTSU : TIER_BREAKDOWN_KITOU).map((name) => {
                     const skillText = `出撃時の武器の${tierCategory}を「${name}」にする`;
-                    return <option key={name} value={name}>{name}（{countNonStackableWithSkill(skillText).toLocaleString()}件）</option>;
+                    return <option key={name} value={name}>（{countNonStackableWithSkill(skillText).toLocaleString()}件）{name}</option>;
                   })}
                 </select>
               )}
@@ -3322,13 +3339,15 @@ function foldGenericLayers(rows) {
             <>
               <select className="select-input" value={tierChar} onChange={(e) => { setTierChar(e.target.value); setTierCharSkill(""); }}>
                 <option value="">キャラを選ぶ ▾</option>
-                {CHALICE_ORDER.filter((c) => TIER_BREAKDOWN_CHAR_SKILLS[c]).map((c) => <option key={c} value={c}>{c}</option>)}
+                {CHALICE_ORDER.filter((c) => TIER_BREAKDOWN_CHAR_SKILLS[c]).map((c) => (
+                  <option key={c} value={c}>{c}（{countNonStackableWithChar(c).toLocaleString()}件）</option>
+                ))}
               </select>
               {tierChar && (
                 <select className="select-input" value={tierCharSkill} onChange={(e) => setTierCharSkill(e.target.value)}>
                   <option value="">効果名を選ぶ ▾</option>
                   {(TIER_BREAKDOWN_CHAR_SKILLS[tierChar] || []).map((name) => (
-                    <option key={name} value={name}>{name}（{countNonStackableWithSkill(name).toLocaleString()}件）</option>
+                    <option key={name} value={name}>（{countNonStackableWithSkill(name).toLocaleString()}件）{name}</option>
                   ))}
                 </select>
               )}
