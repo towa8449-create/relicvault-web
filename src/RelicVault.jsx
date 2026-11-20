@@ -554,6 +554,357 @@ function padRow(row) {
   return r;
 }
 
+/* ===== キャラ別評価（点数） =====
+   10キャラ × 効果ごとに、利用者が付けた評価（◎必須級 / ○強い / 空欄=無評価 / ×付けたくない）から、遺物の点数を計算する。
+   ・遺物1個の点数 ＝ 3スキルの合計（◎+40 / ○+20 / ×-30、デメリットが×のキャラは1つにつき-30）。0点未満は0点、最大120点
+   ・「+N」付き効果は基礎名ごとに評価し、その深度での最大tierに満たないものは1段下げる（◎→○、○→無評価。×はそのまま）
+   ・最大HP/FP/スタミナ上昇は、遺物の深度で「（通常遺物）」「（深層遺物）」のどちらの評価を使うかが決まる
+   ・評価表はExcelから作った固定データ（評価を更新したら、このデータを差し替える）
+   RATING_DATA の文字：M=◎必須級 S=○強い X=×付けたくない -=無評価（キャラの並びは RATING_CHARS と同じ） */
+const RATING_CHARS = ["追跡者", "守護者", "鉄の目", "レディ", "無頼漢", "復讐者", "隠者", "執行者", "学者", "葬儀屋"];
+const RATING_DATA = {
+  "最大HP上昇（通常遺物）": "--SS---SSS",
+  "最大FP上昇（通常遺物）": "---M---S--",
+  "最大HP上昇（深層遺物）": "MMMMMMMMMM",
+  "最大FP上昇（深層遺物）": "-----SSS--",
+  "生命力": "SSSSSSSSSS",
+  "精神力": "S-SS-S-S-S",
+  "持久力": "SMSSSS-S-S",
+  "神秘": "SSSSS----S",
+  "魔術師塔の仕掛けが解除される度、最大FP上昇": "---M-MMM-S",
+  "大教会の強敵を倒す度、最大HP上昇": "MMMMMMSMMM",
+  "物理攻撃力上昇": "MMMMMM-MMM",
+  "魔力攻撃力上昇": "---M--M---",
+  "炎攻撃力上昇": "MMMMMMMMMM",
+  "雷攻撃力上昇": "MMMMMMMMMM",
+  "聖攻撃力上昇": "MMMMMM-MMM",
+  "近接攻撃力上昇": "M-M-S--MSM",
+  "戦技攻撃力上昇": "M-M-S--MSM",
+  "通常攻撃の1段目強化": "M---S----M",
+  "致命の一撃強化": "M------M--",
+  "魔術強化": "---M--M---",
+  "祈祷強化": "-----M---S",
+  "咆哮とブレス強化": "-------S--",
+  "両手持ちの、体勢を崩す力上昇": "S---S----S",
+  "二刀持ちの、体勢を崩す力上昇": "S---S----S",
+  "武器の持ち替え時、物理攻撃力上昇": "--S-------",
+  "属性攻撃力が付加された時、属性攻撃力上昇": "--S-------",
+  "攻撃を受けると攻撃力上昇": "----M-----",
+  "封牢の囚を倒す度、攻撃力上昇": "MMMMMMMMMM",
+  "夜の侵入者を倒す度、攻撃力上昇": "MMMMMMMMMM",
+  "ガードカウンター強化": "-M-----S--",
+  "ガードカウンターに、自身の現在HPの一部を加える": "-M--------",
+  "脂アイテム使用時、追加で物理攻撃力上昇": "--S-----S-",
+  "投擲壺の攻撃力上昇": "--------M-",
+  "投擲ナイフの攻撃力上昇": "--------M-",
+  "輝石、重力石アイテムの攻撃力上昇": "--------S-",
+  "スキルクールタイム軽減": "MSMSS---SS",
+  "アーツゲージ自然蓄積": "MMMMMMMMMM",
+  "敵を倒した時、アーツゲージ増加": "SSSSSSSSMS",
+  "ガード成功時、アーツゲージ増加": "-M-----M--",
+  "魔術/祈祷、効果時間延長": "---------S",
+  "輝剣の魔術を強化": "---M--M---",
+  "カーリアの剣の魔術を強化": "---M--M---",
+  "不可視の魔術を強化": "---M--M---",
+  "結晶人の魔術を強化": "---M--M---",
+  "重力の魔術を強化": "---M--M---",
+  "黄金律原理主義の祈祷を強化": "-----M----",
+  "王都古竜信仰の祈祷を強化": "-----M----",
+  "巨人の火の祈祷を強化": "-----M----",
+  "神狩りの祈祷を強化": "-----M----",
+  "獣の祈祷を強化": "-----M----",
+  "狂い火の祈祷を強化": "-----M----",
+  "竜餐の祈祷を強化": "-----S----",
+  "物理カット率上昇": "SS-SM--S-S",
+  "属性カット率上昇": "SS-SM--S-S",
+  "魔力カット率上昇": "SS-SM--S-S",
+  "炎カット率上昇": "SS-SM--S-S",
+  "雷カット率上昇": "SS-SM--S-S",
+  "聖カット率上昇": "SS-SM--S-S",
+  "HP低下時、カット率上昇": "SS-SM--S-S",
+  "ダメージで吹き飛ばされた時、強靭度とカット率上昇": "SS--M--S-S",
+  "発狂耐性上昇": "SS-S---S--",
+  "ガード成功時、HP回復": "-M-----S--",
+  "刺突カウンター発生時、HP回復": "--S-------",
+  "ダメージを受けた直後、攻撃によりHPの一部を回復": "MMMMM--MMM",
+  "苔薬などのアイテム使用でHP回復": "--------S-",
+  "周囲で腐敗状態の発生時、HP持続回復": "--------S-",
+  "消費FP軽減": "-------M--",
+  "FP持続回復": "-------M--",
+  "攻撃連続時、FP回復": "-------M--",
+  "攻撃命中時、スタミナ回復": "MMMMM--MMM",
+  "致命の一撃で、スタミナ回復速度上昇": "SSSSS--SSS",
+  "武器の持ち替え時、いずれかの属性攻撃力を付加": "--S-------",
+  "ガード中、敵に狙われやすくなる": "-M--------",
+  "毒状態の敵に対する攻撃を強化": "-------S--",
+  "腐敗状態の敵に対する攻撃を強化": "-------SM-",
+  "凍傷状態の敵に対する攻撃を強化": "-------SM-",
+  "周囲で毒/腐敗状態の発生時、攻撃力上昇": "--M----SM-",
+  "周囲で凍傷状態の発生時、自身の姿を隠す": "---M---SM-",
+  "出撃時の武器の戦技を「炎撃」にする": "M---------",
+  "出撃時の武器の戦技を「血の刃」にする": "-------MM-",
+  "出撃時の武器の戦技を「切腹」にする": "-------M--",
+  "出撃時の武器の戦技を「霜踏み」にする": "MM-MMM-MMM",
+  "出撃時の武器の戦技を「アローレイン」にする": "--M-------",
+  "出撃時の武器に炎攻撃力を付加": "--M-------",
+  "出撃時の武器に雷攻撃力を付加": "--M-------",
+  "出撃時の武器に聖攻撃力を付加": "--M-------",
+  "出撃時の武器に毒の状態異常を付加": "--M----SSS",
+  "出撃時の武器に出血の状態異常を付加": "SSMSSS-SSS",
+  "出撃時の武器に冷気の状態異常を付加": "SSMSSS-MMS",
+  "出撃時の武器の魔術を「魔術の輝剣」にする": "------M---",
+  "出撃時の武器の魔術を「カーリアの大剣」にする": "------M---",
+  "出撃時の武器の魔術を「夜のつぶて」にする": "------M---",
+  "出撃時の武器の祈祷を「雷の槍」にする": "-----M----",
+  "出撃時の武器の祈祷を「獣爪」にする": "-----M----",
+  "出撃時に「星光の欠片」を持つ": "-----S--S-",
+  "出撃時に「火炎壺」を持つ": "--------S-",
+  "出撃時に「魔力壺」を持つ": "--------S-",
+  "出撃時に「雷壺」を持つ": "--------S-",
+  "出撃時に「聖水壺」を持つ": "--------S-",
+  "出撃時に「骨の毒投げ矢」を持つ": "--------S-",
+  "出撃時に「結晶投げ矢」を持つ": "--------S-",
+  "出撃時に「スローイングダガー」を持つ": "--------S-",
+  "出撃時に「屑輝石」を持つ": "--------S-",
+  "出撃時に「塊の重力石」を持つ": "--------S-",
+  "出撃時に「高揚の香り」を持つ": "SSSSSSSSSS",
+  "出撃時に「小さなポーチ」を持つ": "SSSSSSSSSS",
+  "出撃時に「石剣の鍵」を持つ": "SSSSSSSSSS",
+  "出撃中、ショップでの購入に必要なルーンが割引": "--------S-",
+  "出撃中、ショップでの購入に必要なルーンが大割引": "--------S-",
+  "自身と味方の取得ルーン増加": "--------S-",
+  "敵を倒した時、自身を除く周囲の味方のHPを回復": "--------S-",
+  "アイテムの効果が周囲の味方にも発動": "SSSSSSSSMS",
+  "【追跡者】アビリティ発動時、アーツゲージ増加": "S---------",
+  "【追跡者】スキル使用時、通常攻撃で炎を纏った追撃を行う（大剣のみ）": "S---------",
+  "【追跡者】スキルの使用回数": "M---------",
+  "【追跡者】アーツ発動時、周囲を延焼": "M---------",
+  "【追跡者】精神力上昇、生命力低下": "S---------",
+  "【追跡者】知力/信仰上昇、筋力/技量低下": "S---------",
+  "【追跡者】スキルに、出血の状態異常を付加": "M---------",
+  "【守護者】アビリティ発動中、ガード成功時、衝撃波が発生": "-M--------",
+  "【守護者】スキルの持続時間延長": "-M--------",
+  "【守護者】アーツ発動時、周囲の味方HPを徐々に回復": "-M--------",
+  "【守護者】斧槍タメ攻撃時、つむじ風が発生": "-M--------",
+  "【守護者】筋力/技量上昇、生命力低下": "-M--------",
+  "【守護者】精神力/信仰上昇、生命力低下": "-S--------",
+  "【守護者】スキル使用時、周囲の味方のカット率上昇": "-M--------",
+  "【鉄の目】スキルの使用回数": "--M-------",
+  "【鉄の目】アーツのタメ発動時、毒の状態異常を付加": "--S-------",
+  "【鉄の目】アーツ発動後、刺突カウンター強化": "--S-------",
+  "【鉄の目】弱点の持続時間を延長させる": "--S-------",
+  "【鉄の目】生命力/筋力上昇、技量低下": "--M-------",
+  "【鉄の目】神秘上昇、技量低下": "--S-------",
+  "【鉄の目】スキルに毒の状態異常を付加して毒状態の敵に大ダメージ": "--M-------",
+  "【レディ】スキルのダメージ上昇": "---M------",
+  "【レディ】アーツ発動中、敵撃破で攻撃力上昇": "---M------",
+  "【レディ】短剣による最終攻撃命中時、周囲の敵に、直近の出来事を再演": "---M------",
+  "【レディ】背後からの致命の一撃後、自身の姿を見え難くし、足音を消す": "---M------",
+  "【レディ】生命力/筋力上昇、精神力低下": "---M------",
+  "【レディ】スキル使用時、僅かに無敵": "---M------",
+  "【無頼漢】スキル中に攻撃を受けると攻撃力と最大スタミナ上昇": "----M-----",
+  "【無頼漢】アーツの効果時間延長": "----M-----",
+  "トーテム・ステラの周囲で敵を倒した時、HP回復": "----M-----",
+  "トーテム・ステラの周囲で、強靭度上昇": "----M-----",
+  "【無頼漢】精神力/知力上昇、生命力/持久力低下": "----S-----",
+  "【無頼漢】神秘上昇、生命力低下": "----S-----",
+  "【無頼漢】スキル命中時、敵の攻撃力低下": "----M-----",
+  "【復讐者】アーツ発動時、霊炎の爆発を発生": "-----M----",
+  "【復讐者】アーツ発動時、自身のHPと引き換えに周囲の味方のHPを全回復": "-----S----",
+  "【復讐者】アーツ発動時、ファミリーと味方を強化": "-----S----",
+  "【復讐者】ファミリーと共闘中の間、自身を強化": "-----S----",
+  "【復讐者】生命力/持久力上昇、精神力低下": "-----S----",
+  "【復讐者】筋力上昇、信仰低下": "-----S----",
+  "【復讐者】アビリティ発動時、最大FP上昇": "-----M----",
+  "【隠者】アーツ発動時、自身が出血状態になり、攻撃力上昇": "------M---",
+  "【隠者】アーツ発動時、最大HP上昇": "------M---",
+  "【隠者】属性痕を集めた時、「魔術の地」が発動": "------M---",
+  "【隠者】生命力/持久力/技量上昇、知力/信仰低下": "------S---",
+  "【隠者】知力/信仰上昇、精神力低下": "------M---",
+  "【隠者】属性痕を集めた時、対応する属性カット率上昇": "------M---",
+  "【執行者】スキル中の攻撃力上昇、攻撃時にカット率低下": "-------S--",
+  "【執行者】スキル中、妖刀が解放状態になるとHP回復": "-------S--",
+  "【執行者】アーツ発動中、咆哮でHP回復": "-------M--",
+  "【執行者】生命力/持久力上昇、神秘低下": "-------S--",
+  "【執行者】技量/神秘上昇、生命力低下": "-------S--",
+  "【執行者】アビリティ発動時、HPをゆっくりと回復": "-------S--",
+  "【学者】スキルの進捗率の低下を抑制": "--------S-",
+  "【学者】スキル使用時、対象に含まれた味方の攻撃力上昇": "--------S-",
+  "【学者】スキルによる標本が増える度、ルーンを取得": "--------S-",
+  "【学者】アーツでリンクした敵対象に、継続ダメージ": "--------M-",
+  "【学者】精神力上昇、生命力低下": "--------M-",
+  "【学者】持久力/技量上昇、知力/神秘低下": "--------M-",
+  "【学者】スキルを自身に使用時、FP消費軽減": "--------S-",
+  "【葬儀屋】アーツ発動時、攻撃力上昇": "---------M",
+  "【葬儀屋】アーツ発動時、触れた味方のHP回復": "---------S",
+  "【葬儀屋】連撃の最終攻撃命中時、攻撃力上昇": "---------S",
+  "【葬儀屋】祈祷を使用して、自身に補助効果発生時物理攻撃力上昇": "---------M",
+  "【葬儀屋】技量上昇、生命力/信仰低下": "---------M",
+  "【葬儀屋】精神力/信仰上昇、筋力低下": "---------M",
+  "【葬儀屋】アーツ発動後、スキル再使用可能": "---------M",
+  "短剣の攻撃力上昇": "---M------",
+  "短剣の攻撃でHP回復": "---M------",
+  "短剣の攻撃でFP回復": "---M------",
+  "短剣の武器種を3つ以上装備していると攻撃力上昇": "---M------",
+  "潜在する力から、短剣を見つけやすくなる": "----XX---X",
+  "潜在する力から、直剣を見つけやすくなる": "--M--X---M",
+  "大剣の攻撃でHP回復": "M---------",
+  "大剣の攻撃でFP回復": "M---------",
+  "大剣の武器種を3つ以上装備していると攻撃力上昇": "M---------",
+  "潜在する力から、大剣を見つけやすくなる": "---X-XXXX-",
+  "潜在する力から、特大剣を見つけやすくなる": "--XX-XXXXM",
+  "刺剣の攻撃力上昇": "--------S-",
+  "刺剣の攻撃でHP回復": "--------S-",
+  "刺剣の攻撃でFP回復": "--------S-",
+  "潜在する力から、刺剣を見つけやすくなる": "----XX---X",
+  "重刺剣の武器種を3つ以上装備していると攻撃力上昇": "-S--------",
+  "曲剣の攻撃力上昇": "-------S--",
+  "曲剣の攻撃でHP回復": "-------S--",
+  "曲剣の攻撃でFP回復": "-------S--",
+  "潜在する力から、曲剣を見つけやすくなる": "----X--M--",
+  "刀の攻撃力上昇": "-------S--",
+  "刀の攻撃でHP回復": "-------S--",
+  "刀の攻撃でFP回復": "-------S--",
+  "潜在する力から、刀を見つけやすくなる": "---------X",
+  "潜在する力から、両刃剣を見つけやすくなる": "-------S-X",
+  "潜在する力から、斧を見つけやすくなる": "-------XM-",
+  "潜在する力から、大斧を見つけやすくなる": "-------XX-",
+  "潜在する力から、槌を見つけやすくなる": "XXXXXXXXX-",
+  "潜在する力から、フレイルを見つけやすくなる": "-------X-S",
+  "潜在する力から、大槌を見つけやすくなる": "-------XXS",
+  "特大武器の攻撃力上昇": "----S-----",
+  "特大武器の攻撃でHP回復": "----S-----",
+  "特大武器の攻撃でFP回復": "----S-----",
+  "特大武器の武器種を3つ以上装備していると攻撃力上昇": "----S-----",
+  "潜在する力から、特大武器を見つけやすくなる": "M-XX---XXS",
+  "潜在する力から、大槍を見つけやすくなる": "-M-X---X-S",
+  "斧槍の攻撃でHP回復": "-S--------",
+  "斧槍の攻撃でFP回復": "-S--------",
+  "斧槍の武器種を3つ以上装備していると攻撃力上昇": "-S--------",
+  "潜在する力から、斧槍を見つけやすくなる": "--XX---XX-",
+  "潜在する力から、鎌を見つけやすくなる": "M-MM---MM-",
+  "潜在する力から、鞭を見つけやすくなる": "-------X--",
+  "潜在する力から、拳を見つけやすくなる": "M---M----M",
+  "爪の攻撃力上昇": "-----S----",
+  "爪の攻撃でHP回復": "-----S----",
+  "爪の攻撃でFP回復": "-----S----",
+  "弓の攻撃力上昇": "--M-------",
+  "弓の攻撃でHP回復": "--M-------",
+  "弓の攻撃でFP回復": "--M-------",
+  "弓の武器種を3つ以上装備していると攻撃力上昇": "--M-------",
+  "潜在する力から、大弓を見つけやすくなる": "-------X--",
+  "潜在する力から、クロスボウを見つけやすくなる": "-----M--M-",
+  "潜在する力から、バリスタを見つけやすくなる": "XXXXXXXXXX",
+  "潜在する力から、小盾を見つけやすくなる": "-------X--",
+  "潜在する力から、中盾を見つけやすくなる": "XXXXXXXXXX",
+  "大盾の武器種を3つ以上装備していると最大HP上昇": "-M--------",
+  "潜在する力から、大盾を見つけやすくなる": "XM-----X--",
+  "杖の武器種を3つ以上装備していると最大FP上昇": "---M--M---",
+  "聖印の武器種を3つ以上装備していると最大FP上昇": "-----MM--M"
+};
+const DEMERIT_RATING = {
+  "生命力と神秘が低下": "--XX-XXXXX",
+  "筋力と知力が低下": "---X------",
+  "知力と技量が低下": "---X------",
+  "HP持続減少": "XXXXXXXXXX",
+  "回避直後、カット率低下": "XXXXXXXXXX",
+  "回避連続時、カット率低下": "XXXXXXXXXX",
+  "HP最大未満時、毒が蓄積": "XXXXXXXXXX",
+  "HP最大未満時、腐敗が蓄積": "XXXXXXXXXX",
+  "瀕死時、最大HP低下": "XXXXXXXXXX"
+};
+const RATING_PAIR_BASES = new Set(["最大HP上昇", "最大FP上昇", "最大スタミナ上昇"]);
+const SCORE_PT = { M: 40, S: 20, X: -30 };
+const DEMERIT_PT = -30;
+
+// 評価表との照合用キー：空白を除き、スラッシュは半角に統一する（効果表側と全角半角が食い違う効果があるため）
+function ratingKey(s) {
+  return String(s || "").replace(/\s+/g, "").replace(/／/g, "/");
+}
+
+// 基礎名ごとの「その深度での最大tier」を、効果表の出現区分（通常のみ/深層のみ/両方あり）から求める
+const RATING_FAMILY_MAX = (() => {
+  const m = new Map();
+  EFFECT_TABLE.forEach((e) => {
+    if (/（(?:通常|深層)遺物）$/.test(e.name)) return;
+    const base = ratingKey(effectTableBaseName(e.name));
+    const mt = e.name.match(/^(.+?)[+＋](\d+)$/);
+    const v = mt ? parseInt(mt[2], 10) : 0;
+    const o = e.occurrence;
+    let cur = m.get(base);
+    if (!cur) { cur = { n: null, d: null }; m.set(base, cur); }
+    if (o === "通常のみ" || o === "両方あり" || o == null) cur.n = cur.n == null ? v : Math.max(cur.n, v);
+    if (o === "深層のみ" || o === "両方あり" || o == null) cur.d = cur.d == null ? v : Math.max(cur.d, v);
+  });
+  return m;
+})();
+
+// 1スキルの評価行（10文字）と、「最大tierに満たず1段下げるか」を返す
+function skillRatingRow(s, deep) {
+  const base = ratingKey(s.numeric ? s.numeric.base : s.text);
+  const tier = s.numeric ? s.numeric.value : 0;
+  const key = base + (RATING_PAIR_BASES.has(base) ? (deep ? "（深層遺物）" : "（通常遺物）") : "");
+  const row = RATING_DATA[key] || null;
+  const fm = RATING_FAMILY_MAX.get(base);
+  const max = fm ? (deep ? fm.d : fm.n) : null;
+  return { row, lowered: !!row && max != null && tier < max, key };
+}
+function stepDown(level) {
+  return level === "M" ? "S" : level === "S" ? "-" : level;
+}
+
+// 遺物の10キャラ分の点数（0点未満は0点）
+function computeRelicScores(skills, deep) {
+  const out = new Array(RATING_CHARS.length).fill(0);
+  skills.forEach((s) => {
+    const { row, lowered } = skillRatingRow(s, deep);
+    const dem = s.demerit ? DEMERIT_RATING[ratingKey(s.demerit)] : null;
+    for (let ci = 0; ci < out.length; ci++) {
+      let level = row ? row[ci] : "-";
+      if (lowered) level = stepDown(level);
+      if (SCORE_PT[level]) out[ci] += SCORE_PT[level];
+      if (dem && dem[ci] === "X") out[ci] += DEMERIT_PT;
+    }
+  });
+  return out.map((v) => Math.max(0, v));
+}
+
+// キャラを1人選んだときの内訳（各スキルの評価と加減点）
+function relicScoreDetail(relic, ci) {
+  const deep = relic.depth === "昏景";
+  let raw = 0;
+  const lines = relic.skills.map((s) => {
+    const { row, lowered } = skillRatingRow(s, deep);
+    const original = row ? row[ci] : "-";
+    const level = lowered ? stepDown(original) : original;
+    const pts = SCORE_PT[level] || 0;
+    const dem = s.demerit ? DEMERIT_RATING[ratingKey(s.demerit)] : null;
+    const demPts = dem && dem[ci] === "X" ? DEMERIT_PT : 0;
+    raw += pts + demPts;
+    return { text: s.text, original, level, lowered, pts, demerit: s.demerit || "", demPts };
+  });
+  return { lines, raw, total: Math.max(0, raw) };
+}
+
+// その効果（基礎名）を◎/○で欲しがっているキャラの番号（遺物の深度で評価行が決まる）
+function ratingWantingChars(baseName, deep) {
+  const base = ratingKey(baseName);
+  const key = base + (RATING_PAIR_BASES.has(base) ? (deep ? "（深層遺物）" : "（通常遺物）") : "");
+  const row = RATING_DATA[key];
+  const out = [];
+  if (row) for (let i = 0; i < row.length; i++) if (row[i] === "M" || row[i] === "S") out.push(i);
+  return out;
+}
+
+// 点数のランク：S≥80, A≥60, B≥40, C≥20, それ未満は「－」
+function scoreRank(p) {
+  return p >= 80 ? "S" : p >= 60 ? "A" : p >= 40 ? "B" : p >= 20 ? "C" : "－";
+}
+function rankClassOf(p) {
+  return p >= 80 ? "s" : p >= 60 ? "a" : p >= 40 ? "b" : p >= 20 ? "c" : "n";
+}
+const LEVEL_LABEL = { M: "◎", S: "○", X: "×", "-": "－" };
+
 function buildRelics(raw) {
   return raw.map((row) => {
     const [name, s1, d1, s2, d2, s3, d3, id, note, fav, sell] = row;
@@ -573,10 +924,15 @@ function buildRelics(raw) {
     const effectiveSlot = meta.slot ?? skills.length;
     // 固有遺物でも、特殊アイテムDBで色が判明していればその色を使う（ビルドの色マッチ判定に使えるようにするため）
     const effectiveColor = meta.color || "固有";
-    const searchBlob = (name + " " + (note || "") + " " + skills.map(s => s.text + " " + s.demerit).join(" ")).toLowerCase().replace(/＋/g, "+");
+    const effectBlob = (name + " " + skills.map(s => s.text + " " + s.demerit).join(" ")).toLowerCase().replace(/＋/g, "+"); // 遺物名・効果名・デメリット
+    const memoBlob = String(note || "").toLowerCase().replace(/＋/g, "+"); // メモのみ
+    const searchBlob = effectBlob + " " + memoBlob; // すべて
+    // キャラ別の点数（10キャラ分）と、その最高点
+    const scores = computeRelicScores(skills, meta.depth === "昏景");
     return {
       id, name, note: note || "", fav: !!fav, sell: !!sell,
-      skills, ...meta, effectiveSlot, effectiveColor, searchBlob,
+      skills, ...meta, effectiveSlot, effectiveColor, searchBlob, effectBlob, memoBlob,
+      scores, maxScore: Math.max(...scores),
     };
   });
 }
@@ -746,38 +1102,18 @@ function dominatesOrEqual(cand, base) {
   return true;
 }
 
-/* 「部分的上位互換」判定：色・深度が同じで、
-   candがbaseのスキルを一部（全部ではなく）含み、かつ
-   お互いの「非共有スキル」の単体重要度合計を比べてcandの方が高い場合 true */
-function partiallyDominates(cand, base, overrides) {
-  if (cand.effectiveColor !== base.effectiveColor) return false;
-  if (cand.depth !== base.depth) return false;
-
-  const { used, baseMatched } = matchSkills(cand, base);
-  const matchedCount = baseMatched.filter(Boolean).length;
-  if (matchedCount === 0 || matchedCount === base.skills.length) return false; // 無関係 or 完全一致(別関数の担当)
-
-  const candOtherImportance = cand.skills.reduce(
-    (sum, s, i) => (used[i] ? sum : sum + getEffectiveImportance(s.importanceKey, overrides)), 0
-  );
-  const baseOtherImportance = base.skills.reduce(
-    (sum, s, i) => (baseMatched[i] ? sum : sum + getEffectiveImportance(s.importanceKey, overrides)), 0
-  );
-  return candOtherImportance > baseOtherImportance;
-}
-
-
 /* 「唯一の供給源」保護：色・深度が同じグループ内で、あるスキル（tier無視の基礎名）について、
    ・最大tier（+の数）の保有者数が閾値（重ね掛け可能なら3、不可なら1）を超える場合：保護を解除する
      （トップtierだけで供給が十分足りているため）
    ・それ以外の場合：tierが高い方から順に、閾値の枚数に達するまで保護する
-     （同tier内で選びきれない場合は、そのtier内の単体重要度が高い方を優先する）
+     （同tier内で選びきれない場合は、その効果を◎/○で欲しがっているキャラの点数が高い方を優先する。
+     欲しがっているキャラがいなければ、10キャラの最高点が高い方を優先する）
    スロット数（スキル数）は判定に使わない（ビルド配置は色・深度だけが条件のため）。
    ※重ね掛け可能なスキルは、同tierの遺物が複数あれば同時装備で二重に効果が乗るため、
      「他の1枚に完全上位互換で飲み込まれているかどうか」は保護の可否に関係しない
      （その遺物固有のtierがスタック合計に必要なら、たとえ他のスキル構成で見劣りしても保護対象になる）。
    戻り値：{ protectedIds: Set, reasons: Map<relicId, [{base, groupLabel}]> } */
-function computeProtectedIds(groups, overrides) {
+function computeProtectedIds(groups) {
   const protectedIds = new Set();
   const reasons = new Map();
   groups.forEach((group, groupKey) => {
@@ -791,7 +1127,7 @@ function computeProtectedIds(groups, overrides) {
         if (!bySkill.has(base)) bySkill.set(base, new Map());
         const byRelic = bySkill.get(base);
         const cur = byRelic.get(r.id);
-        if (!cur || tierValue > cur.tier) byRelic.set(r.id, { tier: tierValue, importanceKey: s.importanceKey });
+        if (!cur || tierValue > cur.tier) byRelic.set(r.id, { tier: tierValue, importanceKey: s.importanceKey, relic: r, baseName: base });
         if (!stackableOf.has(base)) {
           // DAMAGE_TABLE（攻撃力系の重ね掛けデータ、より精密）を優先し、無ければ効果量データを見る
           const dmg = DAMAGE_TABLE[s.importanceKey];
@@ -810,9 +1146,9 @@ function computeProtectedIds(groups, overrides) {
 
       // tierごとにグルーピングし、tierが高い順に並べる
       const byTier = new Map(); // tier -> [{id, importanceKey}]
-      byRelic.forEach(({ tier, importanceKey }, id) => {
+      byRelic.forEach(({ tier, importanceKey, relic, baseName }, id) => {
         if (!byTier.has(tier)) byTier.set(tier, []);
-        byTier.get(tier).push({ id, importanceKey });
+        byTier.get(tier).push({ id, importanceKey, relic, baseName });
       });
       const tiersDesc = [...byTier.keys()].sort((a, b) => b - a);
 
@@ -821,7 +1157,7 @@ function computeProtectedIds(groups, overrides) {
       if (maxTierCount > neededMax) return;
 
       // tierが高い方から、閾値の枚数に達するまで保護対象を積み上げる
-      // （同tier内で選びきれない場合は単体重要度が高い方を優先）
+      // （同tier内で選びきれない場合は点数が高い方を優先）
       const idsToProtect = [];
       let remaining = neededMax;
       for (const tier of tiersDesc) {
@@ -831,9 +1167,9 @@ function computeProtectedIds(groups, overrides) {
           candidates.forEach((c) => idsToProtect.push(c.id));
           remaining -= candidates.length;
         } else {
-          const sorted = [...candidates].sort(
-            (a, b) => getEffectiveImportance(b.importanceKey, overrides) - getEffectiveImportance(a.importanceKey, overrides)
-          );
+          const wanting = ratingWantingChars(candidates[0].baseName, candidates[0].relic.depth === "昏景");
+          const protectScore = (c) => (wanting.length ? Math.max(...wanting.map((i) => c.relic.scores[i])) : c.relic.maxScore);
+          const sorted = [...candidates].sort((a, b) => protectScore(b) - protectScore(a));
           sorted.slice(0, remaining).forEach((c) => idsToProtect.push(c.id));
           remaining = 0;
         }
@@ -851,7 +1187,7 @@ function computeProtectedIds(groups, overrides) {
 }
 
 /* 全遺物に対して「これを上回る遺物」の一覧を作る（完全上位互換／上位互換の両方） */
-function buildDominanceMap(relics, overrides) {
+function buildDominanceMap(relics) {
   const groups = new Map();
   relics.forEach((r) => {
     if (r.sell) return; // 売却フラグ済みの遺物は上位互換の計算対象から除外する
@@ -861,7 +1197,7 @@ function buildDominanceMap(relics, overrides) {
   });
 
   // グループ分けを1回だけ行い、保護判定と上位互換判定の両方で使い回す（以前は同じ計算を二重に行っていた）
-  const { protectedIds, reasons: protectionReasons } = computeProtectedIds(groups, overrides);
+  const { protectedIds, reasons: protectionReasons } = computeProtectedIds(groups);
 
   const map = new Map(); // id -> [{id,type:'full'|'partial',skills:[skillText,...]}]
   groups.forEach((group) => {
@@ -873,8 +1209,6 @@ function buildDominanceMap(relics, overrides) {
         const skills = cand.skills.map((s) => s.text);
         if (dominatesOrEqual(cand, base)) {
           supersededBy.push({ id: cand.id, type: "full", skills });
-        } else if (partiallyDominates(cand, base, overrides)) {
-          supersededBy.push({ id: cand.id, type: "partial", skills });
         }
       }
       if (supersededBy.length) {
@@ -1743,7 +2077,7 @@ function RelicVaultInner() {
   const [keyword, setKeyword] = useState("");
   const [favOnly, setFavOnly] = useState(false);
   const [sellOnly, setSellOnly] = useState(false);
-  const [sellCandidateFilter, setSellCandidateFilter] = useState(""); // ""=指定なし, "complete", "charMismatch", "partial"
+  const [sellCandidateFilter, setSellCandidateFilter] = useState(""); // ""=指定なし, "complete", "charMismatch", "lowScore" ほか
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [showNeededOnly, setShowNeededOnly] = useState(false);
   // 「重ね掛け不可（戦技/魔術/祈祷/キャラ固有）」の階層絞り込み
@@ -1764,8 +2098,12 @@ function RelicVaultInner() {
     setBuildRequirements(next);
     storage.set("relic-build-requirements", JSON.stringify(next), false).catch(() => {});
   }, []);
-  const [importanceMin, setImportanceMin] = useState(""); // ""=指定なし
-  const [importanceMax, setImportanceMax] = useState("");
+  const [scoreChar, setScoreChar] = useState(""); // ""=全員（10キャラの最高点で判定） / キャラ名
+  const [scoreMin, setScoreMin] = useState(""); // N点以上（""=指定なし）
+  const [scoreMax, setScoreMax] = useState(""); // N点以下（""=指定なし）
+  const [searchScope, setSearchScope] = useState("all"); // 検索の範囲："all"=すべて / "effect"=効果名 / "memo"=メモ
+  const [scoreSort, setScoreSort] = useState(""); // ""=標準の並び / "high"=点数が高い順 / "low"=点数が低い順
+  const [lowScoreMax, setLowScoreMax] = useState("20"); // 売却候補「点数が低い」のN点以下
   const [selectedEffects, setSelectedEffects] = useState([]); // [{value,label}]
   const [reviewRelicId, setReviewRelicId] = useState(null); // 審査中の候補遺物（ステップ3）
   const [reviewSkillIndex, setReviewSkillIndex] = useState(0); // 審査中、今見ているスキルの番号
@@ -1779,8 +2117,6 @@ function RelicVaultInner() {
   const [importMsg, setImportMsg] = useState("");
   const [importErr, setImportErr] = useState("");
   const [showDataPanel, setShowDataPanel] = useState(false);
-  const [showImportancePanel, setShowImportancePanel] = useState(false);
-  const [importanceSearch, setImportanceSearch] = useState("");
   const fileInputRef = React.useRef(null);
   const settingsFileInputRef = React.useRef(null);
 
@@ -1811,8 +2147,11 @@ function RelicVaultInner() {
     setSellCandidateFilter("");
     setShowPendingOnly(false);
     setShowNeededOnly(false);
-    setImportanceMin("");
-    setImportanceMax("");
+    setScoreChar("");
+    setScoreMin("");
+    setScoreMax("");
+    setSearchScope("all");
+    setScoreSort("");
     setSelectedEffects([]);
     setStatCategory("none");
     setStatBase("all");
@@ -1990,13 +2329,6 @@ function RelicVaultInner() {
     setConfirmDialog(null);
   };
 
-  const handleResetData = useCallback(() => {
-    setRawData(DEFAULT_RAW);
-    storage.delete("relic-rawdata", false).catch(() => {});
-    setImportMsg("初期データ（内蔵の遺物データ）に戻しました");
-    setImportErr("");
-  }, []);
-
   const handleClearData = useCallback(() => {
     askConfirm(
       "遺物データを全て削除して空の状態にします。よろしいですか？（お気に入り・タグ・ビルドは別データなので消えません）",
@@ -2138,17 +2470,6 @@ function RelicVaultInner() {
     });
   }, []);
 
-  // 単体重要度のユーザー調整（未調整のスキルはキー自体を持たず、原本値をそのまま使う）
-  const setImportanceOverride = useCallback((skillKey, value) => {
-    setImportanceOverrides((prev) => {
-      const next = { ...prev };
-      if (value === null) delete next[skillKey];
-      else next[skillKey] = value;
-      storage.set("relic-importance-overrides", JSON.stringify(next), false).catch(() => {});
-      return next;
-    });
-  }, []);
-
   // 審査ステータス：未審査（キー無し）／保留（pending）／必要（needed、売却候補フィルタから除外する）
   const setRelicReviewStatus = useCallback((relicId, status) => {
     setReviewStatus((prev) => {
@@ -2158,11 +2479,6 @@ function RelicVaultInner() {
       storage.set("relic-review-status", JSON.stringify(next), false).catch(() => {});
       return next;
     });
-  }, []);
-
-  const resetAllImportanceOverrides = useCallback(() => {
-    setImportanceOverrides({});
-    storage.set("relic-importance-overrides", JSON.stringify({}), false).catch(() => {});
   }, []);
 
   // お気に入り・売却フラグ・メモは、個人設定ではなく遺物データ本体（JSON）に保存する
@@ -2395,20 +2711,43 @@ function RelicVaultInner() {
   const DEMERIT_BASES = useMemo(() => buildDemeritBases(RELICS), [RELICS]);
   const EFFECT_OPTIONS = useMemo(() => buildEffectOptions(RELICS), [RELICS]);
   const MASTER_EFFECT_OPTIONS = useMemo(() => buildMasterEffectOptions(RELICS), [RELICS]);
+
+  // 検索候補：入力中の最後の語を含む効果名（最大8件表示、残りは「ほか○件」）
+  const SUGGEST_MAX = 8;
+  const searchSuggest = useMemo(() => {
+    if (searchScope === "memo") return { items: [], rest: 0, token: "" };
+    if (/[\s\u3000]$/.test(keyword)) return { items: [], rest: 0, token: "" };
+    const parts = keyword.split(/[\s\u3000]+/);
+    const token = (parts[parts.length - 1] || "").trim();
+    if (!token) return { items: [], rest: 0, token: "" };
+    const t = token.toLowerCase().replace(/＋/g, "+");
+    const seen = new Set();
+    const all = [];
+    EFFECT_OPTIONS.forEach((o) => {
+      const lab = o.label;
+      if (seen.has(lab)) return;
+      if (lab.toLowerCase().includes(t) && lab.toLowerCase() !== t) { seen.add(lab); all.push(lab); }
+    });
+    return { items: all.slice(0, SUGGEST_MAX), rest: Math.max(0, all.length - SUGGEST_MAX), token };
+  }, [keyword, searchScope, EFFECT_OPTIONS]);
+  const pickSuggest = (label) => {
+    const parts = keyword.split(/([\s\u3000]+)/);
+    parts[parts.length - 1] = label;
+    setKeyword(parts.join("") + " ");
+  };
+
   const MASTER_EFFECT_OPTIONS_BUILD = useMemo(() => buildMasterEffectOptions(RELICS, true), [RELICS]);
   const DEMERIT_OPTIONS_BUILD = useMemo(() => buildDemeritOptions(RELICS), [RELICS]);
 
-  const { map: dominanceMap, protectionReasons } = useMemo(() => buildDominanceMap(RELICS, importanceOverrides), [RELICS, importanceOverrides]);
+  const { map: dominanceMap, protectionReasons } = useMemo(() => buildDominanceMap(RELICS), [RELICS]);
   // 完全上位互換かどうか（supersededByの中にtype==="full"が1つでもあるか）
   const isCompleteDominated = useCallback((r) => {
     const s = dominanceMap.get(r.id);
     return !!s && s.some((x) => x.type === "full");
   }, [dominanceMap]);
-  // その他上位互換＝上位互換はあるが、完全上位互換ではないもの（今の上位互換から完全上位互換を引いたもの）
-  const isPartialOnlyDominated = useCallback((r) => {
-    const s = dominanceMap.get(r.id);
-    return !!s && !s.some((x) => x.type === "full");
-  }, [dominanceMap]);
+  // 点数の判定に使う値：キャラを選んでいればそのキャラの点数、選んでいなければ10キャラの最高点
+  const scoreCharIndex = scoreChar ? RATING_CHARS.indexOf(scoreChar) : -1;
+  const scoreOf = useCallback((r) => (scoreCharIndex >= 0 ? r.scores[scoreCharIndex] : r.maxScore), [scoreCharIndex]);
   // 各売却候補フィルタの「未処理（必要フラグが付いていない）」件数：ドロップダウンの進捗表示に使う
   // 未処理＝「必要」フラグ済みでも「保留」でも「売却フラグ済み」でもないもの
   const isUnprocessedForCount = useCallback(
@@ -2476,9 +2815,9 @@ function RelicVaultInner() {
     () => RELICS.filter((r) => hasPrayerNoAptitudeCombo(r) && isUnprocessedForCount(r)).length,
     [RELICS, isUnprocessedForCount]
   );
-  const partialUnresolvedCount = useMemo(
-    () => RELICS.filter((r) => isPartialOnlyDominated(r) && isUnprocessedForCount(r)).length,
-    [RELICS, isPartialOnlyDominated, isUnprocessedForCount]
+  const lowScoreUnresolvedCount = useMemo(
+    () => (lowScoreMax === "" ? 0 : RELICS.filter((r) => scoreOf(r) <= Number(lowScoreMax) && isUnprocessedForCount(r)).length),
+    [RELICS, scoreOf, lowScoreMax, isUnprocessedForCount]
   );
   const pendingCount = useMemo(
     () => RELICS.filter((r) => reviewStatus[r.id] === "pending").length,
@@ -2543,16 +2882,6 @@ function RelicVaultInner() {
     }).slice(0, 5);
     return { relic, isComplete: false, otherSkills, idx, currentSkill, currentBase, alternatives };
   }, [reviewRelicId, reviewSkillIndex, relicById, RELICS, dominanceMap]);
-
-  // 遺物ごとの合計重要度（スキル単体重要度の合計。ユーザー調整があればそちらを優先）
-  const relicImportanceMap = useMemo(() => {
-    const map = new Map();
-    RELICS.forEach((r) => {
-      const total = r.skills.reduce((sum, s) => sum + getEffectiveImportance(s.importanceKey, importanceOverrides), 0);
-      map.set(r.id, total);
-    });
-    return map;
-  }, [RELICS, importanceOverrides]);
 
   const [buildWarning, setBuildWarning] = useState("");
 
@@ -2899,7 +3228,7 @@ function foldGenericLayers(rows) {
       if (sellCandidateFilter === "charMismatch" && !hasCharMismatchCombo(r)) return false;
       if (sellCandidateFilter === "magicNoAptitude" && !hasMagicNoAptitudeCombo(r)) return false;
       if (sellCandidateFilter === "prayerNoAptitude" && !hasPrayerNoAptitudeCombo(r)) return false;
-      if (sellCandidateFilter === "partial" && !isPartialOnlyDominated(r)) return false;
+      if (sellCandidateFilter === "lowScore" && !(lowScoreMax !== "" && scoreOf(r) <= Number(lowScoreMax))) return false;
       if (sellCandidateFilter === "tierGeki") {
         const target = tierCategory && tierTarget ? `出撃時の武器の${tierCategory}を「${tierTarget}」にする` : "";
         if (!target) return false; // 末端まで選び終えていなければ何も表示しない
@@ -2911,15 +3240,16 @@ function foldGenericLayers(rows) {
       }
       if (showPendingOnly && reviewStatus[r.id] !== "pending") return false;
       if (showNeededOnly && reviewStatus[r.id] !== "needed") return false;
-      if (importanceMin !== "" && relicImportanceMap.get(r.id) < Number(importanceMin)) return false;
-      if (importanceMax !== "" && relicImportanceMap.get(r.id) > Number(importanceMax)) return false;
+      if (scoreMin !== "" && scoreOf(r) < Number(scoreMin)) return false;
+      if (scoreMax !== "" && scoreOf(r) > Number(scoreMax)) return false;
       if (selectedEffects.length) {
         const ids = new Set(r.skills.map((s) => skillIdentity(s)));
         if (!selectedEffects.every((e) => ids.has(e.value))) return false;
       }
       if (kwTokens.length) {
         // r.searchBlobには遺物名・スキル・note（コメント）が含まれる
-        const hit = kwTokens.every((t) => r.searchBlob.includes(t));
+        const blob = searchScope === "effect" ? r.effectBlob : searchScope === "memo" ? r.memoBlob : r.searchBlob;
+        const hit = kwTokens.every((t) => blob.includes(t));
         if (!hit) return false;
       }
       if (statCategory !== "none" && !findMatchingSkill(r)) return false;
@@ -2938,10 +3268,14 @@ function foldGenericLayers(rows) {
         const s = r.skills.find((sk) => skillIdentity(sk) === target);
         return s && s.numeric ? s.numeric.value : 0;
       };
-      list = [...list].sort((a, b) => tierOf(a) - tierOf(b) || (relicImportanceMap.get(a.id) - relicImportanceMap.get(b.id)));
+      list = [...list].sort((a, b) => tierOf(a) - tierOf(b) || (scoreOf(a) - scoreOf(b)));
+    }
+    // 点数での並び替え（指定があれば他の並びより優先。同点は元の並び＝入手順のまま）
+    if (scoreSort) {
+      list = [...list].sort((a, b) => (scoreSort === "high" ? scoreOf(b) - scoreOf(a) : scoreOf(a) - scoreOf(b)));
     }
     return list;
-  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, isPartialOnlyDominated, showPendingOnly, showNeededOnly, reviewStatus, selectedEffects, importanceMin, importanceMax, relicImportanceMap, tierCategory, tierTarget, tierChar, tierCharSkill]);
+  }, [RELICS, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, showPendingOnly, showNeededOnly, reviewStatus, selectedEffects, scoreMin, scoreMax, searchScope, scoreSort, scoreOf, lowScoreMax, tierCategory, tierTarget, tierChar, tierCharSkill]);
 
   // 「固有」が色フィルタに含まれている時だけ、未所持の固有遺物を「幽霊カード」として一覧の末尾に追加する。
   // RELICSには一切加えないため、審査・売却判定・重要度計算・ビルドの対象には一切ならない。
@@ -2993,81 +3327,29 @@ function foldGenericLayers(rows) {
         <button className="data-toggle-btn" onClick={() => setShowDataPanel((v) => !v)}>
           {showDataPanel ? "データ管理を閉じる ▲" : "遺物データ／設定の共有・読込 ▾"}
         </button>
-        <button className="data-toggle-btn" onClick={() => setShowImportancePanel((v) => !v)}>
-          {showImportancePanel ? "重要度の調整を閉じる ▲" : "スキルの単体重要度を調整 ▾"}
-        </button>
       </header>
-
-      {showImportancePanel && (
-        <div className="data-panel">
-          <div className="panel-title">スキルの単体重要度（1〜10、5が標準）を調整</div>
-          <div className="chalice-note" style={{ marginTop: 0 }}>
-            各スキルの「単体としての重要度」を自分の好みで上書きできます。未調整のものは原本の数値（下の薄い数字）がそのまま使われます。ここでの調整は個人設定として保存され、遺物カードの「重要度」表示・上位互換判定・重要度での絞り込みすべてに反映されます。
-          </div>
-          <div className="data-panel-row">
-            <input
-              className="importance-search-input"
-              placeholder="スキル名で検索…"
-              value={importanceSearch}
-              onChange={(e) => setImportanceSearch(e.target.value)}
-            />
-            <button className="data-btn secondary danger" onClick={resetAllImportanceOverrides}>
-              すべての調整をリセット
-            </button>
-          </div>
-          <div className="importance-adjust-list">
-            {EFFECT_TABLE
-              .filter((e) => !importanceSearch.trim() || e.name.includes(importanceSearch.trim()))
-              .map((e) => {
-                const override = importanceOverrides[e.name];
-                const effective = typeof override === "number" ? override : e.importance;
-                return (
-                  <div className="importance-adjust-row" key={e.name}>
-                    <span className="importance-adjust-name">{e.name}</span>
-                    <span className="importance-adjust-original">原本：{e.importance}</span>
-                    <input
-                      type="number" min={1} max={10} className="importance-adjust-input"
-                      value={effective}
-                      onChange={(ev) => {
-                        const v = ev.target.value === "" ? null : Math.max(1, Math.min(10, Number(ev.target.value)));
-                        setImportanceOverride(e.name, v === e.importance ? null : v);
-                      }}
-                    />
-                    {typeof override === "number" && (
-                      <button className="importance-adjust-reset" onClick={() => setImportanceOverride(e.name, null)}>
-                        既定値に戻す
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
 
       {showDataPanel && (
         <div className="data-panel">
           <div className="panel-title">遺物データの管理（友人との共有用）</div>
           <div className="chalice-note" style={{ marginTop: 0 }}>
-            「遺物データ」＝1935件などの遺物本体。「個人設定」＝お気に入り・タグ・ビルド枠。
-            友人に渡すときは遺物データのJSONを送るだけでOK。友人はこの画面の「読み込む」からそのファイルを選ぶと、自分の環境にすぐ反映されます（自分のお気に入り等は別で保持されます）。
+            「遺物データ」＝遺物本体（1件ずつの効果・メモ・お気に入り・売却フラグ）。「個人設定」＝お気に入り・タグ・ビルド枠。
+            友人に渡すときは遺物データのJSONを送るだけでOK。友人はこの画面の「データを丸ごと入れ替える」からそのファイルを選ぶと、自分の環境にすぐ反映されます（自分のお気に入り等は別で保持されます）。
           </div>
+          <div className="data-group-title">① 取り込む</div>
           <div className="data-panel-row">
-            <button className="data-btn" onClick={handleExportData}>
-              遺物データを書き出す（.json）
+            <button className="data-btn" onClick={() => setShowOcrSync((v) => !v)}>
+              {showOcrSync ? "新しいデータで更新する ▲" : "新しいデータで更新する（メモ・お気に入り・売却フラグを引き継ぐ） ▾"}
             </button>
             <label htmlFor="relic-import-input" className="data-btn secondary file-label-btn">
-              遺物データを読み込む（.json）
+              データを丸ごと入れ替える（バックアップ復元用）
             </label>
-            <button className="data-btn secondary" onClick={handleResetData}>
-              初期データ（内蔵データ）に戻す
-            </button>
-            <button className="data-btn secondary danger" onClick={handleClearData}>
-              空にする（箱だけの状態）
-            </button>
+            <label htmlFor="settings-import-input" className="data-btn secondary file-label-btn">
+              個人設定を読み込む
+            </label>
           </div>
           <div className="chalice-note">
-            「空にする」を押すと遺物データが0件になり、ツールが空の入れ物だけの状態になります。友人に配布するときや、自分の手持ちデータだけで作り直したいときに使えます。
+            「更新する」＝検出ツールなどの新しいデータを取り込み、今のメモ・お気に入り・売却フラグを引き継ぎます（普段はこちら）。「丸ごと入れ替える」＝ファイルの中身で今のデータを全部置き換えます（引き継ぎなし）。
           </div>
           <input
             id="relic-import-input"
@@ -3082,11 +3364,6 @@ function foldGenericLayers(rows) {
             }}
           />
 
-          <div className="data-panel-row">
-            <button className="data-btn secondary" onClick={() => setShowOcrSync((v) => !v)}>
-              {showOcrSync ? "OCR同期を閉じる ▲" : "OCRツールの結果を同期する（note・お気に入り・売却フラグを引き継ぎ） ▾"}
-            </button>
-          </div>
           {showOcrSync && !ocrSyncResult && (
             <div className="paste-import-box">
               <div className="chalice-note" style={{ marginTop: 0 }}>
@@ -3233,13 +3510,14 @@ function foldGenericLayers(rows) {
             </div>
           )}
 
+          <div className="data-group-title">② 書き出す</div>
           <div className="data-panel-row">
-            <button className="data-btn" onClick={handleExportSettings}>
+            <button className="data-btn" onClick={handleExportData}>
+              遺物データを書き出す（.json）
+            </button>
+            <button className="data-btn secondary" onClick={handleExportSettings}>
               個人設定（お気に入り・タグ・ビルド）を書き出す
             </button>
-            <label htmlFor="settings-import-input" className="data-btn secondary file-label-btn">
-              個人設定を読み込む
-            </label>
           </div>
           <input
             id="settings-import-input"
@@ -3253,6 +3531,15 @@ function foldGenericLayers(rows) {
               e.target.value = "";
             }}
           />
+          <div className="data-group-title">③ 消す</div>
+          <div className="data-panel-row">
+            <button className="data-btn secondary danger" onClick={handleClearData}>
+              空にする（箱だけの状態）
+            </button>
+          </div>
+          <div className="chalice-note">
+            「空にする」を押すと遺物データが0件になり、ツールが空の入れ物だけの状態になります。友人に配布するときや、自分の手持ちデータだけで作り直したいときに使えます。
+          </div>
           {importMsg && <div className="data-msg">{importMsg}</div>}
           {importErr && <div className="data-err">{importErr}</div>}
 
@@ -3309,8 +3596,18 @@ function foldGenericLayers(rows) {
             <option value="prayerNoAptitude">売却候補：祈祷適性なし（{prayerNoAptitudeUnresolvedCount.toLocaleString()}件）</option>
             <option value="tierGeki">売却候補：出撃時の戦技/魔術/祈祷変更で未審査（{tierGekiTotalCount.toLocaleString()}件）</option>
             <option value="tierChar">売却候補：キャラ固有効果で未審査（{tierCharTotalCount.toLocaleString()}件）</option>
-            <option value="partial">売却候補：その他上位互換（{partialUnresolvedCount.toLocaleString()}件、精度に注意）</option>
+            <option value="lowScore">売却候補：点数が低い（{lowScoreMax === "" ? "－" : lowScoreMax}点以下、{lowScoreUnresolvedCount.toLocaleString()}件）</option>
           </select>
+          {sellCandidateFilter === "lowScore" && (
+            <>
+              <input
+                type="number" min={0} max={120} step={10} className="importance-range-input"
+                placeholder="点以下" value={lowScoreMax}
+                onChange={(e) => setLowScoreMax(e.target.value)}
+              />
+              <span className="importance-range-sep">点以下（{scoreChar ? `${scoreChar}の点数` : "10キャラの最高点"}で判定）</span>
+            </>
+          )}
           {sellCandidateFilter === "tierGeki" && (
             <>
               <select
@@ -3370,20 +3667,38 @@ function foldGenericLayers(rows) {
         </div>
 
         <div className="filter-row">
-          <span className="filter-label">重要度</span>
+          <span className="filter-label">点数</span>
+          <select
+            className={`select-input${scoreChar ? " active" : ""}`}
+            value={scoreChar}
+            onChange={(e) => setScoreChar(e.target.value)}
+          >
+            <option value="">キャラ：全員（最高点）</option>
+            {RATING_CHARS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <input
-            type="number" min={1} max={30} className="importance-range-input"
-            placeholder="以上" value={importanceMin}
-            onChange={(e) => setImportanceMin(e.target.value)}
+            type="number" min={0} max={120} step={10} className="importance-range-input"
+            placeholder="点以上" value={scoreMin}
+            onChange={(e) => setScoreMin(e.target.value)}
           />
-          <span className="importance-range-sep">〜</span>
+          <span className="importance-range-sep">点以上</span>
           <input
-            type="number" min={1} max={30} className="importance-range-input"
-            placeholder="以下" value={importanceMax}
-            onChange={(e) => setImportanceMax(e.target.value)}
+            type="number" min={0} max={120} step={10} className="importance-range-input"
+            placeholder="点以下" value={scoreMax}
+            onChange={(e) => setScoreMax(e.target.value)}
           />
-          {(importanceMin !== "" || importanceMax !== "") && (
-            <button className="importance-range-clear" onClick={() => { setImportanceMin(""); setImportanceMax(""); }}>
+          <span className="importance-range-sep">点以下</span>
+          <select
+            className={`select-input${scoreSort ? " active" : ""}`}
+            value={scoreSort}
+            onChange={(e) => setScoreSort(e.target.value)}
+          >
+            <option value="">並び：標準</option>
+            <option value="high">並び：点数が高い順</option>
+            <option value="low">並び：点数が低い順</option>
+          </select>
+          {(scoreChar || scoreMin !== "" || scoreMax !== "" || scoreSort) && (
+            <button className="importance-range-clear" onClick={() => { setScoreChar(""); setScoreMin(""); setScoreMax(""); setScoreSort(""); }}>
               クリア
             </button>
           )}
@@ -3393,13 +3708,23 @@ function foldGenericLayers(rows) {
           <Search size={15} className="search-icon" />
           <input
             className="search-input"
-            placeholder="スキル・タグで検索（スペース区切りでAND　例: 出血 攻撃力）"
+            placeholder={searchScope === "memo" ? "メモで検索（スペース区切りでAND）" : searchScope === "effect" ? "遺物名・効果名で検索（スペース区切りでAND　例: 出血 攻撃力）" : "スキル・タグで検索（スペース区切りでAND　例: 出血 攻撃力）"}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
           />
           {keyword && (
             <button className="clear-btn" onClick={() => setKeyword("")}>×</button>
           )}
+          <select
+            className={`select-input${searchScope !== "all" ? " active" : ""}`}
+            value={searchScope}
+            onChange={(e) => setSearchScope(e.target.value)}
+            title="検索する範囲"
+          >
+            <option value="all">範囲：すべて</option>
+            <option value="effect">範囲：効果名</option>
+            <option value="memo">範囲：メモ</option>
+          </select>
           <SearchableListbox
             buttonLabel="効果一覧から選ぶ"
             placeholder="効果名で検索…"
@@ -3407,6 +3732,17 @@ function foldGenericLayers(rows) {
             onSelect={addSelectedEffect}
           />
         </div>
+        {searchSuggest.items.length > 0 && (
+          <div className="suggest-row">
+            <span className="suggest-label">候補</span>
+            {searchSuggest.items.map((lab) => (
+              <button key={lab} type="button" className="suggest-chip" onClick={() => pickSuggest(lab)}>{lab}</button>
+            ))}
+            {searchSuggest.rest > 0 && (
+              <span className="suggest-more">ほか{searchSuggest.rest}件…（続きを入力すると絞り込めます）</span>
+            )}
+          </div>
+        )}
         {selectedEffects.length > 0 && (
           <div className="filter-row" style={{ marginTop: 8 }}>
             {selectedEffects.map((e) => (
@@ -3424,6 +3760,57 @@ function foldGenericLayers(rows) {
         )}
       </div>
 
+
+      <div className="filter-bar">
+        <div className="panel-title">数値効果で絞り込む（攻撃力・ステータス・デメリット）</div>
+        <div className="filter-row">
+          <span className="filter-label">種類</span>
+          <Chip active={statCategory === "none"} onClick={() => setStatCategory("none")}>指定なし</Chip>
+          <Chip active={statCategory === "attack"} onClick={() => setStatCategory("attack")} colorRing="#B4553A">攻撃力</Chip>
+          <Chip active={statCategory === "stat"} onClick={() => setStatCategory("stat")} colorRing="#C9A227">ステータス</Chip>
+          <Chip active={statCategory === "other"} onClick={() => setStatCategory("other")} colorRing="#5A6E8C">その他数値</Chip>
+          <Chip active={statCategory === "demerit"} onClick={() => setStatCategory("demerit")} colorRing="#A85C4E">デメリット</Chip>
+        </div>
+        {statCategory !== "none" && (
+          <div className="filter-row">
+            <span className="filter-label">項目</span>
+            <SearchableListbox
+              buttonLabel={statBase === "all" ? "項目を選択（すべて）" : statBase}
+              placeholder="項目名で検索…"
+              options={[{ value: "all", label: "すべて" }, ...statBaseOptions.map((b) => ({ value: b, label: b }))]}
+              onSelect={(v) => setStatBase(v)}
+            />
+            {statBaseHasPercent && (
+              <Chip active={statUsePercent} onClick={() => { setStatUsePercent((v) => !v); setStatMin(0); }} colorRing="#B9974A">
+                ％で判定
+              </Chip>
+            )}
+            <span className="filter-label" style={{ width: "auto" }}>
+              {statCategory === "demerit" ? "最低（絶対値）" : statUsePercent ? "最低％" : "最低段階"}
+            </span>
+            <NumberStepper
+              value={statMin}
+              min={0}
+              step={statUsePercent ? 0.5 : 1}
+              onChange={(v) => setStatMin(v)}
+            />
+            <span className="filter-label" style={{ width: "auto", color: "#6E6350" }}>
+              以上（{statCategory === "demerit" ? "重い順" : "高い順"}に表示）
+            </span>
+          </div>
+        )}
+        {statCategory !== "none" && statCategory !== "demerit" && statBase !== "all" && statBaseHasPercent && PERCENT_MAP[statBase] && (
+          <div className="chalice-info">
+            実際の効果量：{Object.entries((PERCENT_MAP[statBase].deep || PERCENT_MAP[statBase].normal))
+              .map(([k, v]) => `${k === "0" ? "" : "+" + k}→${v}${PERCENT_MAP[statBase].unit}`).join(" / ")}
+          </div>
+        )}
+        {statCategory === "demerit" && statBase !== "all" && DEMERIT_MAP[statBase] && (
+          <div className="chalice-info">
+            「{statBase}」の効果量：{getDemeritInfo(statBase).display}
+          </div>
+        )}
+      </div>
 
       <div className="chalice-bar">
         <div className="panel-title">盃（献器）から色を絞り込む・ビルドを組む</div>
@@ -3682,57 +4069,6 @@ function foldGenericLayers(rows) {
         <div className="chalice-note">{CHALICE_NOTE}</div>
       </div>
 
-      <div className="filter-bar">
-        <div className="panel-title">数値効果で絞り込む（攻撃力・ステータス・デメリット）</div>
-        <div className="filter-row">
-          <span className="filter-label">種類</span>
-          <Chip active={statCategory === "none"} onClick={() => setStatCategory("none")}>指定なし</Chip>
-          <Chip active={statCategory === "attack"} onClick={() => setStatCategory("attack")} colorRing="#B4553A">攻撃力</Chip>
-          <Chip active={statCategory === "stat"} onClick={() => setStatCategory("stat")} colorRing="#C9A227">ステータス</Chip>
-          <Chip active={statCategory === "other"} onClick={() => setStatCategory("other")} colorRing="#5A6E8C">その他数値</Chip>
-          <Chip active={statCategory === "demerit"} onClick={() => setStatCategory("demerit")} colorRing="#A85C4E">デメリット</Chip>
-        </div>
-        {statCategory !== "none" && (
-          <div className="filter-row">
-            <span className="filter-label">項目</span>
-            <SearchableListbox
-              buttonLabel={statBase === "all" ? "項目を選択（すべて）" : statBase}
-              placeholder="項目名で検索…"
-              options={[{ value: "all", label: "すべて" }, ...statBaseOptions.map((b) => ({ value: b, label: b }))]}
-              onSelect={(v) => setStatBase(v)}
-            />
-            {statBaseHasPercent && (
-              <Chip active={statUsePercent} onClick={() => { setStatUsePercent((v) => !v); setStatMin(0); }} colorRing="#B9974A">
-                ％で判定
-              </Chip>
-            )}
-            <span className="filter-label" style={{ width: "auto" }}>
-              {statCategory === "demerit" ? "最低（絶対値）" : statUsePercent ? "最低％" : "最低段階"}
-            </span>
-            <NumberStepper
-              value={statMin}
-              min={0}
-              step={statUsePercent ? 0.5 : 1}
-              onChange={(v) => setStatMin(v)}
-            />
-            <span className="filter-label" style={{ width: "auto", color: "#6E6350" }}>
-              以上（{statCategory === "demerit" ? "重い順" : "高い順"}に表示）
-            </span>
-          </div>
-        )}
-        {statCategory !== "none" && statCategory !== "demerit" && statBase !== "all" && statBaseHasPercent && PERCENT_MAP[statBase] && (
-          <div className="chalice-info">
-            実際の効果量：{Object.entries((PERCENT_MAP[statBase].deep || PERCENT_MAP[statBase].normal))
-              .map(([k, v]) => `${k === "0" ? "" : "+" + k}→${v}${PERCENT_MAP[statBase].unit}`).join(" / ")}
-          </div>
-        )}
-        {statCategory === "demerit" && statBase !== "all" && DEMERIT_MAP[statBase] && (
-          <div className="chalice-info">
-            「{statBase}」の効果量：{getDemeritInfo(statBase).display}
-          </div>
-        )}
-      </div>
-
       <main className="card-grid">
         {visible.length === 0 && loaded && (
           <div className="empty-state">
@@ -3914,9 +4250,35 @@ function foldGenericLayers(rows) {
                     );
                   })()}
 
-                  <div className="importance-badge" title="このカードのスキル単体重要度の合計">
-                    重要度：{relicImportanceMap.get(r.id)}
+                  <div className="score-row" title="キャラ別の点数（最大120点）">
+                    {RATING_CHARS.map((c, i) => {
+                      const p = r.scores[i];
+                      return (
+                        <span
+                          key={c}
+                          className={`score-chip rank-${rankClassOf(p)}${scoreCharIndex === i ? " selected" : ""}`}
+                          title={`${c}：${p}点（${scoreRank(p)}）`}
+                        >
+                          {c.slice(0, 1)}<b>{p}</b>
+                        </span>
+                      );
+                    })}
                   </div>
+                  {scoreCharIndex >= 0 && (() => {
+                    const d = relicScoreDetail(r, scoreCharIndex);
+                    return (
+                      <div className="score-detail">
+                        <div className="score-detail-title">{scoreChar}の内訳：{d.total}点（{scoreRank(d.total)}）</div>
+                        {d.lines.map((ln, k) => (
+                          <div className="score-detail-line" key={k}>
+                            {ln.text}：{LEVEL_LABEL[ln.original]}{ln.lowered && ln.original !== "-" && ln.original !== "X" ? `→${LEVEL_LABEL[ln.level]}（最大tier未満）` : ""} {ln.pts > 0 ? `+${ln.pts}` : ln.pts < 0 ? `${ln.pts}` : "0"}
+                            {ln.demerit && ln.demPts !== 0 ? `／デメリット「${ln.demerit}」×${ln.demPts}` : ""}
+                          </div>
+                        ))}
+                        {d.raw < 0 && <div className="score-detail-line">合計がマイナスのため0点として扱います（{d.raw}）</div>}
+                      </div>
+                    );
+                  })()}
 
                   {canAssign(r) && (
                     <button className="assign-btn" onClick={() => assignToBuild(r)}>
@@ -3975,11 +4337,14 @@ function foldGenericLayers(rows) {
                             対象：{reviewData.currentSkill.numeric ? reviewData.currentSkill.numeric.base : reviewData.currentSkill.text}
                             {reviewData.currentSkill.numeric && reviewData.currentSkill.numeric.value > 0 ? ` +${reviewData.currentSkill.numeric.value}` : ""}
                           </div>
+                          {reviewData.currentSkill.demerit && (
+                            <div className="review-demerit">デメリット：{reviewData.currentSkill.demerit}</div>
+                          )}
                           {reviewData.alternatives.length > 0 ? (
                             <ul className="review-panel-list">
                               {reviewData.alternatives.map((alt) => (
                                 <li key={alt.id}>
-                                  {alt.name}：{alt.skills.map((s) => s.numeric ? `${s.numeric.base}${s.numeric.value > 0 ? `+${s.numeric.value}` : ""}` : s.text).join(" / ")}
+                                  {alt.name}：{alt.skills.map((s) => (s.numeric ? `${s.numeric.base}${s.numeric.value > 0 ? `+${s.numeric.value}` : ""}` : s.text) + (s.demerit ? `［デメリット：${s.demerit}］` : "")).join(" / ")}
                                 </li>
                               ))}
                             </ul>
@@ -5462,6 +5827,32 @@ const GLOBAL_CSS = `
 }
 .importance-range-clear:hover { border-color: #B9974A; color: #B9974A; }
 
+.score-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 8px 0 4px; }
+.score-chip {
+  display: flex; align-items: baseline; justify-content: center; gap: 3px;
+  padding: 1px 2px; border-radius: 4px; font-size: 11px; min-width: 0;
+  border: 1px solid #3A3526; color: #8A7F66; background: transparent;
+}
+.score-chip b { font-weight: 600; font-size: 12px; }
+.score-chip.rank-s { border-color: #E0B64A; color: #F2D27A; background: rgba(224,182,74,0.16); }
+.score-chip.rank-a { border-color: #B9974A; color: #D8B964; background: rgba(185,151,74,0.12); }
+.score-chip.rank-b { border-color: #7C7350; color: #B3A77F; }
+.score-chip.rank-c { border-color: #4F4A38; color: #8A7F66; }
+.score-chip.rank-n { border-color: #2E2A1F; color: #5A5142; }
+.suggest-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.suggest-label { font-size: 11px; color: #8A7F66; }
+.suggest-chip {
+  border: 1px solid #4F4A38; background: transparent; color: #D8B964; border-radius: 12px;
+  padding: 2px 9px; font-size: 12px; cursor: pointer; font-family: 'Zen Kaku Gothic New', sans-serif;
+}
+.suggest-chip:hover { border-color: #B9974A; background: rgba(185,151,74,0.12); }
+.suggest-more { font-size: 11px; color: #8A7F66; }
+.review-demerit { font-size: 12px; color: #C98A7A; margin: 2px 0 6px; font-family: 'Zen Kaku Gothic New', sans-serif; }
+.data-group-title { font-size: 12px; color: #B9974A; margin: 12px 0 4px; letter-spacing: 0.04em; }
+.score-chip.selected { outline: 2px solid #D6B94A; outline-offset: 1px; }
+.score-detail { margin: 4px 0 6px; padding: 6px 8px; border-left: 2px solid #B9974A; background: rgba(185,151,74,0.06); font-size: 11.5px; color: #B3A77F; }
+.score-detail-title { color: #D8B964; margin-bottom: 2px; }
+.score-detail-line { line-height: 1.5; }
 .importance-badge {
   position: absolute;
   bottom: 10px;
