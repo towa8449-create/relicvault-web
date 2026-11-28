@@ -440,8 +440,8 @@ function formatRelicSkillsForReview(relic) {
 
 function syncOcrImport(ocrRows, currentRawData, reviewStatusMap) {
   const sigOf = (row) => computeSignature(row[0], row[1], row[2], row[3], row[4], row[5], row[6]);
-  // note/fav/sellに加え、保留・必要（審査ステータス、別の場所に保存されているためidで参照する）も「情報あり」とみなす
-  const hasInfo = (row) => (row[8] && String(row[8]).trim()) || row[9] === true || row[10] === true || !!(reviewStatusMap && reviewStatusMap[row[7]]);
+  // note/fav/sellに加え、審査状態（弱くない・代替なし・分からない）も「情報あり」とみなす
+  const hasInfo = (row) => (row[8] && String(row[8]).trim()) || row[9] === true || row[10] === true || !!row[11];
 
   // メモの合成：片方が空ならもう片方をそのまま採用。両方あって内容が同じならそのまま。
   // 両方あって内容が違う場合は自動で選ばず、暫定的に旧を採用した上で要確認に回す。
@@ -490,6 +490,7 @@ function syncOcrImport(ocrRows, currentRawData, reviewStatusMap) {
       r[7] = oldRows[0][7];
       r[9] = oldRows[0][9] === true || newRows[0][9] === true;
       r[10] = oldRows[0][10] === true || newRows[0][10] === true;
+      r[11] = oldRows[0][11] || newRows[0][11] || ""; // 審査状態は旧を優先
       const { merged, conflict } = mergeNote(oldRows[0][8], newRows[0][8]);
       r[8] = merged;
       finalRows.push(r);
@@ -545,11 +546,11 @@ function syncOcrImport(ocrRows, currentRawData, reviewStatusMap) {
   };
 }
 
-// rawDataの行配列を [name,s1,d1,s2,d2,s3,d3,id,note,fav,sell] の11要素に揃える（旧形式の短い行にも対応）
+// rawDataの行配列を [name,s1,d1,s2,d2,s3,d3,id,note,fav,sell,review] の12要素に揃える（旧形式の短い行にも対応）
 function padRow(row) {
   const r = [...row];
-  while (r.length < 11) {
-    r.push(r.length === 8 ? "" : false);
+  while (r.length < 12) {
+    r.push(r.length === 8 || r.length === 11 ? "" : false);
   }
   return r;
 }
@@ -872,6 +873,7 @@ const RATING_DATA = {
   "槍の攻撃でHP回復": "-D--------",
   "槍の攻撃でFP回復": "-D--------",
   "大槍の攻撃力上昇": "-S--------",
+  "斧槍の攻撃力上昇": "-S--------",
   "大槍の攻撃でHP回復": "-S--------",
   "大槍の攻撃でFP回復": "-S--------",
   "潜在する力から、大槍を見つけやすくなる": "-M-X---X-S",
@@ -943,6 +945,8 @@ const RATING_FAMILY_MAX = (() => {
   });
   return m;
 })();
+// 効果表では+1が「両方あり」だが、実際の+1は固有遺物にしか無い効果：通常遺物の最大段階は無印として扱う（無印を1段下げない）
+["攻撃命中時、スタミナ回復", "致命の一撃強化"].forEach((b) => RATING_FAMILY_MAX.set(ratingKey(b), { n: 0, d: 0 }));
 
 // 1スキルの評価行（10文字）と、「最大tierに満たず1段下げるか」を返す
 function skillRatingRow(s, deep) {
@@ -1011,9 +1015,17 @@ function rankClassOf(p) {
 }
 const LEVEL_LABEL = { M: "◎", S: "○", D: "△", X: "×", "-": "－" };
 
+// 審査状態（売却候補から外す理由）：遺物の行の12番目に持つ
+const REVIEW_LABELS = { notweak: "弱くない", noalt: "代替なし", unknown: "分からない" };
+const REVIEW_DESC = {
+  notweak: "点数は低いが、弱くない（売却候補から外す）",
+  noalt: "他にこれしかない（完全上位互換が来たら自動で解除）",
+  unknown: "強いのか分からない（自分で戻すまで外したまま）",
+};
+
 function buildRelics(raw) {
   return raw.map((row) => {
-    const [name, s1, d1, s2, d2, s3, d3, id, note, fav, sell] = row;
+    const [name, s1, d1, s2, d2, s3, d3, id, note, fav, sell, review] = row;
     const meta = parseRelic(name);
     const skills = [
       s1 ? { text: normalizeSkillText(s1), demerit: normalizeSkillText(d1) } : null,
@@ -1036,7 +1048,7 @@ function buildRelics(raw) {
     // キャラ別の点数（10キャラ分）と、その最高点
     const scores = computeRelicScores(skills, meta.depth === "昏景");
     return {
-      id, name, note: note || "", fav: !!fav, sell: !!sell,
+      id, name, note: note || "", fav: !!fav, sell: !!sell, review: REVIEW_LABELS[review] ? review : "",
       skills, ...meta, effectiveSlot, effectiveColor, searchBlob, effectBlob, memoBlob,
       scores, maxScore: Math.max(...scores),
     };
@@ -2152,6 +2164,7 @@ function normalizeImportedData(json) {
       o.note ?? "",
       !!o.fav,
       !!(o.sell ?? o.sell_flag),
+      REVIEW_LABELS[o.review] ? o.review : "", // 審査状態（無ければ未審査）
     ]);
   }
   throw new Error("認識できないデータ形式です");
@@ -2159,7 +2172,7 @@ function normalizeImportedData(json) {
 
 // 内部のコンパクト行配列を、友人と共有しやすいオブジェクト形式に変換してエクスポートする
 function toExportFormat(raw) {
-  const relics = raw.map(([name, s1, d1, s2, d2, s3, d3, id, note, fav, sell]) => ({
+  const relics = raw.map(([name, s1, d1, s2, d2, s3, d3, id, note, fav, sell, review]) => ({
     relic_name: name,
     skill1: s1 || "",
     skill1_demerit: d1 || "",
@@ -2171,6 +2184,7 @@ function toExportFormat(raw) {
     note: note || "",
     fav: !!fav,
     sell: !!sell,
+    review: REVIEW_LABELS[review] ? review : "", // notweak=弱くない / noalt=代替なし / unknown=分からない
   }));
   return {
     version: 1,
@@ -2211,8 +2225,8 @@ function RelicVaultInner() {
   const [favOnly, setFavOnly] = useState(false);
   const [sellOnly, setSellOnly] = useState(false);
   const [sellCandidateFilter, setSellCandidateFilter] = useState(""); // ""=指定なし, "complete", "charMismatch", "lowScore" ほか
-  const [showPendingOnly, setShowPendingOnly] = useState(false);
-  const [showNeededOnly, setShowNeededOnly] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState(new Set()); // 審査状態での絞り込み（弱くない／代替なし／分からない）
+  const [autoReleaseMsg, setAutoReleaseMsg] = useState(""); // 「代替なし」を自動解除したときのお知らせ
   // 「重ね掛け不可（戦技/魔術/祈祷/キャラ固有）」の階層絞り込み
   const [tierCategory, setTierCategory] = useState(""); // "" | "戦技" | "魔術" | "祈祷" | "キャラ固有"
   const [tierTarget, setTierTarget] = useState(""); // 戦技/魔術/祈祷の技名
@@ -2242,12 +2256,17 @@ function RelicVaultInner() {
   const [reviewRelicId, setReviewRelicId] = useState(null); // 審査中の候補遺物（ステップ3）
   const [reviewSkillIndex, setReviewSkillIndex] = useState(0); // 審査中、今見ているスキルの番号
   const [importanceOverrides, setImportanceOverrides] = useState({}); // { [skillFullText]: number(1-10) } ユーザー調整分のみ
-  const [reviewStatus, setReviewStatus] = useState({}); // { [relicId]: "pending" | "needed" }（未審査はキー無し）
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loaded, setLoaded] = useState(false);
 
   /* 遺物データ本体（インポートで差し替え可能） */
   const [rawData, setRawData] = useState(DEFAULT_RAW);
+  // 審査状態は遺物データの行に持つ。ここでは id → 状態 の対応表を作って使う（未審査はキー無し）
+  const reviewStatus = useMemo(() => {
+    const m = {};
+    rawData.forEach((row) => { if (REVIEW_LABELS[row[11]]) m[row[7]] = row[11]; });
+    return m;
+  }, [rawData]);
   const [importMsg, setImportMsg] = useState("");
   const [importErr, setImportErr] = useState("");
   const [showDataPanel, setShowDataPanel] = useState(false);
@@ -2279,8 +2298,7 @@ function RelicVaultInner() {
     setFavOnly(false);
     setSellOnly(false);
     setSellCandidateFilter("");
-    setShowPendingOnly(false);
-    setShowNeededOnly(false);
+    setReviewFilter(new Set());
     setScoreChar("");
     setScoreMin("");
     setScoreMax("");
@@ -2298,6 +2316,21 @@ function RelicVaultInner() {
   useEffect(() => {
     (async () => {
       let legacyMeta = null;
+      let legacyReview = null;
+      // 旧形式の審査状態を遺物の行へ移す（保留→分からない、必要→弱くない）。何も移せなければnull
+      const migrateReview = (rows) => {
+        if (!legacyReview) return null;
+        let changed = false;
+        const next = rows.map((row) => {
+          const old = legacyReview[row[7]];
+          if (!old || row[11]) return row;
+          const r = padRow(row);
+          r[11] = old === "pending" ? "unknown" : "notweak";
+          changed = true;
+          return r;
+        });
+        return changed ? next : null;
+      };
       try {
         const res = await storage.get("relic-meta", false);
         if (res && res.value) legacyMeta = JSON.parse(res.value); // 旧形式（お気に入りが個人設定側にあった名残）
@@ -2318,7 +2351,7 @@ function RelicVaultInner() {
       }
       try {
         const res2c = await storage.get("relic-review-status", false);
-        if (res2c && res2c.value) setReviewStatus(JSON.parse(res2c.value));
+        if (res2c && res2c.value) legacyReview = JSON.parse(res2c.value); // 旧形式（保留・必要を別の場所に保存していた）
       } catch (e) {
         // 未保存キー
       }
@@ -2347,7 +2380,20 @@ function RelicVaultInner() {
             storage.set("relic-rawdata", JSON.stringify(rows), false).catch(() => {});
             storage.delete("relic-meta", false).catch(() => {});
           }
+          const migrated = migrateReview(rows);
+          if (migrated) {
+            rows = migrated;
+            storage.set("relic-rawdata", JSON.stringify(rows), false).catch(() => {});
+            storage.set("relic-review-status", "{}", false).catch(() => {}); // 移行済み
+          }
           setRawData(rows); // 空配列（箱だけの状態）も含めてそのまま反映する
+        } else {
+          const migrated = migrateReview(DEFAULT_RAW);
+          if (migrated) {
+            setRawData(migrated);
+            storage.set("relic-rawdata", JSON.stringify(migrated), false).catch(() => {});
+            storage.set("relic-review-status", "{}", false).catch(() => {});
+          }
         }
       } catch (e) {
         // 未保存キー。デフォルトデータのまま
@@ -2427,6 +2473,7 @@ function RelicVaultInner() {
           rows[finalIdx][8] = oldRow[8];
           rows[finalIdx][9] = oldRow[9];
           rows[finalIdx][10] = oldRow[10];
+          rows[finalIdx][11] = oldRow[11] || "";
         }
       });
     });
@@ -2605,13 +2652,16 @@ function RelicVaultInner() {
     });
   }, []);
 
-  // 審査ステータス：未審査（キー無し）／保留（pending）／必要（needed、売却候補フィルタから除外する）
+  // 審査状態：未審査（空）／弱くない（notweak）／代替なし（noalt）／分からない（unknown）。遺物の行の12番目に保存する
   const setRelicReviewStatus = useCallback((relicId, status) => {
-    setReviewStatus((prev) => {
-      const next = { ...prev };
-      if (!status) delete next[relicId];
-      else next[relicId] = status;
-      storage.set("relic-review-status", JSON.stringify(next), false).catch(() => {});
+    setRawData((prev) => {
+      const next = prev.map((row) => {
+        if (row[7] !== relicId) return row;
+        const r = padRow(row);
+        r[11] = status || "";
+        return r;
+      });
+      storage.set("relic-rawdata", JSON.stringify(next), false).catch(() => {});
       return next;
     });
   }, []);
@@ -2690,7 +2740,7 @@ function RelicVaultInner() {
         editDraft.skill3, editDraft.demerit3,
         row[7],
         editDraft.note,
-        old[9], old[10], // お気に入り・売却フラグは編集フォームの対象外なのでそのまま保持
+        old[9], old[10], old[11], // お気に入り・売却フラグ・審査状態は編集フォームの対象外なのでそのまま保持
       ];
     });
     setRawData(next);
@@ -2744,7 +2794,7 @@ function RelicVaultInner() {
     setVisibleCount(PAGE_SIZE);
   };
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, sellCandidateFilter, showPendingOnly, showNeededOnly, selectedEffects]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [keyword, favOnly, sellOnly, statCategory, statBase, statMin, statUsePercent, sellCandidateFilter, reviewFilter, selectedEffects]);
   useEffect(() => { setStatBase("all"); setStatUsePercent(false); }, [statCategory]);
 
   // AND検索: 全角/半角スペース区切りのトークンを全て満たす
@@ -2851,7 +2901,7 @@ function RelicVaultInner() {
   const EFFECT_TIERS = useMemo(() => {
     const m = new Map();
     RELICS.forEach((r) => r.skills.forEach((s) => {
-      if (s.numeric && s.numeric.value > 0) {
+      if (s.numeric) { // 無印（+0）も段階として数える
         const k = skillIdentity(s);
         if (!m.has(k)) m.set(k, new Set());
         m.get(k).add(s.numeric.value);
@@ -2878,8 +2928,9 @@ function RelicVaultInner() {
     if (searchScope !== "memo") {
       EFFECT_OPTIONS.forEach((o) => {
         const tiers = [...(EFFECT_TIERS.get(o.value) || [])].sort((a, b) => a - b);
-        const variants = tiers.length
-          ? [{ tier: null, label: `${o.label}（全体）` }, ...tiers.map((n) => ({ tier: n, label: `${o.label}+${n}` }))]
+        // +1以上の段階がある効果だけ、段階ごとの候補を出す（無印は「（無印）」として並べる）
+        const variants = tiers.some((n) => n > 0)
+          ? [{ tier: null, label: `${o.label}（全体）` }, ...tiers.map((n) => ({ tier: n, label: n === 0 ? `${o.label}（無印）` : `${o.label}+${n}` }))]
           : [{ tier: null, label: o.label }];
         variants.forEach((v) => {
           const key = `${o.value}|${v.tier == null ? "all" : v.tier}`;
@@ -2922,13 +2973,34 @@ function RelicVaultInner() {
     const s = dominanceMap.get(r.id);
     return !!s && s.some((x) => x.type === "full");
   }, [dominanceMap]);
+  // 「代替なし」の自動解除：完全上位互換の遺物が現れたら、代替なしを外して売却候補に戻す
+  // （完全上位互換の計算は売却フラグ付きの遺物を除いて行われるので、近々なくなる遺物は代替に数えない）
+  useEffect(() => {
+    if (!loaded) return;
+    const released = RELICS.filter((r) => r.review === "noalt" && isCompleteDominated(r));
+    if (!released.length) return;
+    const ids = new Set(released.map((r) => r.id));
+    setRawData((prev) => {
+      const next = prev.map((row) => {
+        if (!ids.has(row[7])) return row;
+        const r = padRow(row);
+        r[11] = "";
+        return r;
+      });
+      storage.set("relic-rawdata", JSON.stringify(next), false).catch(() => {});
+      return next;
+    });
+    const names = released.slice(0, 3).map((r) => r.name).join("、");
+    setAutoReleaseMsg(`代替（完全上位互換）が現れたため、「代替なし」を${released.length}件解除しました（${names}${released.length > 3 ? " ほか" : ""}）。売却候補に戻ります。`);
+  }, [RELICS, isCompleteDominated, loaded]);
+
   // 点数の判定に使う値：キャラを選んでいればそのキャラの点数、選んでいなければ10キャラの最高点
   const scoreCharIndex = scoreChar ? RATING_CHARS.indexOf(scoreChar) : -1;
   const scoreOf = useCallback((r) => (scoreCharIndex >= 0 ? r.scores[scoreCharIndex] : r.maxScore), [scoreCharIndex]);
-  // 各売却候補フィルタの「未処理（必要フラグが付いていない）」件数：ドロップダウンの進捗表示に使う
-  // 未処理＝「必要」フラグ済みでも「保留」でも「売却フラグ済み」でもないもの
+  // 各売却候補フィルタの「未処理」件数：ドロップダウンの進捗表示に使う
+  // 未処理＝審査状態（弱くない・代替なし・分からない）も売却フラグも付いていないもの
   const isUnprocessedForCount = useCallback(
-    (r) => !r.sell && reviewStatus[r.id] !== "needed" && reviewStatus[r.id] !== "pending",
+    (r) => !r.sell && !reviewStatus[r.id],
     [reviewStatus]
   );
   // 「重ね掛け不可」階層絞り込み専用：件数表示だけに使う（保留・必要・売却フラグ・お気に入り・noteのどれも無いもの）
@@ -2996,14 +3068,11 @@ function RelicVaultInner() {
     () => (lowScoreMax === "" ? 0 : RELICS.filter((r) => scoreOf(r) <= Number(lowScoreMax) && isUnprocessedForCount(r)).length),
     [RELICS, scoreOf, lowScoreMax, isUnprocessedForCount]
   );
-  const pendingCount = useMemo(
-    () => RELICS.filter((r) => reviewStatus[r.id] === "pending").length,
-    [RELICS, reviewStatus]
-  );
-  const neededCount = useMemo(
-    () => RELICS.filter((r) => reviewStatus[r.id] === "needed").length,
-    [RELICS, reviewStatus]
-  );
+  const reviewCounts = useMemo(() => {
+    const c = { notweak: 0, noalt: 0, unknown: 0 };
+    RELICS.forEach((r) => { if (r.review) c[r.review] += 1; });
+    return c;
+  }, [RELICS]);
 
   const relicById = useMemo(() => {
     const map = new Map();
@@ -3389,12 +3458,12 @@ function foldGenericLayers(rows) {
       // フィルタは「何も選択されていない＝すべて表示」。ONにしたものだけに絞り込む
       if (slotFilter.size > 0 && !slotFilter.has(r.effectiveSlot > 3 ? 3 : r.effectiveSlot)) return false;
       if (colorFilter.size > 0 && !(colorFilter.has(r.effectiveColor) || (colorFilter.has("固有") && r.special))) return false;
-      if (depthFilter.size > 0 && !r.special && !depthFilter.has(r.depth)) return false;
+      if (depthFilter.size > 0 && (r.special || !depthFilter.has(r.depth))) return false; // 固有遺物には深度が無いので、深度を選んだら出さない
       if (favOnly && !r.fav) return false;
       if (sellOnly && !r.sell) return false;
       // 「重ね掛け不可」階層絞り込みは、他の売却候補と違い保留・note記載済みも含めて全部表示する
       const isTierFilter = sellCandidateFilter === "tierGeki" || sellCandidateFilter === "tierChar";
-      if (sellCandidateFilter && !isTierFilter && (r.sell || reviewStatus[r.id] === "needed" || reviewStatus[r.id] === "pending")) return false;
+      if (sellCandidateFilter && !isTierFilter && (r.sell || reviewStatus[r.id])) return false;
       if (sellCandidateFilter === "complete" && !isCompleteDominated(r)) return false;
       if (sellCandidateFilter === "charMismatch" && !hasCharMismatchCombo(r)) return false;
       if (sellCandidateFilter === "magicNoAptitude" && !hasMagicNoAptitudeCombo(r)) return false;
@@ -3408,8 +3477,7 @@ function foldGenericLayers(rows) {
         if (!tierCharSkill) return false; // 末端まで選び終えていなければ何も表示しない
         if (!r.skills.some((s) => skillFullText(s) === tierCharSkill)) return false;
       }
-      if (showPendingOnly && reviewStatus[r.id] !== "pending") return false;
-      if (showNeededOnly && reviewStatus[r.id] !== "needed") return false;
+      if (reviewFilter.size > 0 && !reviewFilter.has(reviewStatus[r.id])) return false;
       if (scoreMin !== "" && scoreOf(r) < Number(scoreMin)) return false;
       if (scoreMax !== "" && scoreOf(r) > Number(scoreMax)) return false;
       // 検索条件：選んだ効果チップ（全体／レベル指定）と、入力した語（効果名・メモ）を、AND／ORで組み合わせる
@@ -3444,12 +3512,13 @@ function foldGenericLayers(rows) {
     }
     list.bandCounts = bandCounts;
     return list;
-  }, [RELICS, matchMode, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, showPendingOnly, showNeededOnly, reviewStatus, selectedEffects, scoreMin, scoreMax, searchScope, scoreSort, scoreOf, lowScoreMax, tierCategory, tierTarget, tierChar, tierCharSkill]);
+  }, [RELICS, matchMode, slotFilter, colorFilter, depthFilter, favOnly, sellOnly, kwTokens, statCategory, statBase, statMin, statUsePercent, findMatchingSkill, sellCandidateFilter, isCompleteDominated, reviewFilter, reviewStatus, selectedEffects, scoreMin, scoreMax, searchScope, scoreSort, scoreOf, lowScoreMax, tierCategory, tierTarget, tierChar, tierCharSkill]);
 
   // 「固有」が色フィルタに含まれている時だけ、未所持の固有遺物を「幽霊カード」として一覧の末尾に追加する。
   // RELICSには一切加えないため、審査・売却判定・重要度計算・ビルドの対象には一切ならない。
   const ghostSpecialCards = useMemo(() => {
     if (!colorFilter.has("固有")) return [];
+    if (depthFilter.size > 0) return []; // 固有遺物には深度が無いので、深度を選んだら未所持の参考カードも出さない
     const ownedNames = new Set(RELICS.map((r) => r.name));
     const groupedNames = new Set(SPECIAL_ITEM_NAME_GROUPS.flat());
     const ghosts = [];
@@ -3475,7 +3544,7 @@ function foldGenericLayers(rows) {
     });
 
     return ghosts;
-  }, [colorFilter, RELICS]);
+  }, [colorFilter, depthFilter, RELICS]);
 
   const visible = [...filtered.slice(0, visibleCount), ...ghostSpecialCards];
   const statBaseOptions = statCategory === "demerit" ? DEMERIT_BASES : (statCategory !== "none" ? NUMERIC_BASES[statCategory] : []);
@@ -3592,8 +3661,7 @@ function foldGenericLayers(rows) {
                             旧候補{oi + 1}：
                             {old[9] ? "★お気に入り " : ""}
                             {old[10] ? "売却予定 " : ""}
-                            {reviewStatus[old[7]] === "pending" ? "保留 " : ""}
-                            {reviewStatus[old[7]] === "needed" ? "必要 " : ""}
+                            {REVIEW_LABELS[old[11]] ? REVIEW_LABELS[old[11]] + " " : ""}
                             {old[8] ? `メモ「${old[8]}」` : ""}
                           </span>
                           <select
@@ -3625,7 +3693,7 @@ function foldGenericLayers(rows) {
 
               {ocrSyncResult.vanishingWithInfo.length > 0 && (
                 <>
-                  <div className="review-panel-title" style={{ marginTop: 12 }}>要確認：note・お気に入り・保留/必要が付いたまま消える遺物</div>
+                  <div className="review-panel-title" style={{ marginTop: 12 }}>要確認：note・お気に入り・審査状態（弱くない・代替なし・分からない）が付いたまま消える遺物</div>
                   {ocrSyncResult.vanishingWithInfo.map((row, i) => (
                     <label key={i} className="ocr-sync-vanish-row">
                       <input
@@ -3636,8 +3704,7 @@ function foldGenericLayers(rows) {
                       <span>
                         <strong>{row[0]}</strong>：
                         {row[9] ? "★お気に入り " : ""}
-                        {reviewStatus[row[7]] === "pending" ? "保留 " : ""}
-                        {reviewStatus[row[7]] === "needed" ? "必要 " : ""}
+                        {REVIEW_LABELS[row[11]] ? REVIEW_LABELS[row[11]] + " " : ""}
                         {row[8] ? `メモ「${row[8]}」` : ""}（チェックすると削除せず残します）
                         <div className="ocr-sync-group-content">{formatRowSkillsForReview(row)}</div>
                       </span>
@@ -3754,12 +3821,11 @@ function foldGenericLayers(rows) {
             <Star size={12} style={{ marginRight: 4, verticalAlign: -2 }} fill={favOnly ? "#B9974A" : "none"} />
             お気に入り
           </Chip>
-          <Chip active={showPendingOnly} onClick={() => setShowPendingOnly((v) => !v)} colorRing="#7FA9C9">
-            保留のみ（{pendingCount.toLocaleString()}件）
-          </Chip>
-          <Chip active={showNeededOnly} onClick={() => setShowNeededOnly((v) => !v)} colorRing="#8FC49A">
-            必要のみ（{neededCount.toLocaleString()}件）
-          </Chip>
+          {[["notweak", "#8FC49A"], ["noalt", "#7FA9C9"], ["unknown", "#D6B87A"]].map(([code, ring]) => (
+            <Chip key={code} active={reviewFilter.has(code)} onClick={() => toggleSetVal(setReviewFilter, code)} colorRing={ring}>
+              {REVIEW_LABELS[code]}（{reviewCounts[code].toLocaleString()}件）
+            </Chip>
+          ))}
         </div>
 
         <div className="filter-row">
@@ -4250,6 +4316,12 @@ function foldGenericLayers(rows) {
       </div>
 
       <main className="card-grid">
+        {autoReleaseMsg && (
+          <div className="auto-release-note">
+            <span>{autoReleaseMsg}</span>
+            <button className="card-edit-btn" onClick={() => setAutoReleaseMsg("")}>閉じる</button>
+          </div>
+        )}
         {visible.length === 0 && loaded && (
           <div className="empty-state">
             条件に合う遺物が見つかりません。絞り込みを緩めてみてください。
@@ -4487,8 +4559,7 @@ function foldGenericLayers(rows) {
                     </button>
                   </div>
 
-                  {reviewStatus[r.id] === "pending" && <div className="review-status-badge pending">保留</div>}
-                  {reviewStatus[r.id] === "needed" && <div className="review-status-badge needed">必要（売却候補から除外中）</div>}
+                  {reviewStatus[r.id] && <div className={`review-status-badge ${reviewStatus[r.id]}`}>{REVIEW_LABELS[reviewStatus[r.id]]}（売却候補から除外中）</div>}
 
                   {isReviewing && reviewData && (
                     <div className="review-panel-inline">
@@ -4548,11 +4619,20 @@ function foldGenericLayers(rows) {
                           )}
                         </>
                       )}
-                      <div className="card-edit-row" style={{ marginTop: 8 }}>
-                        <button className="card-edit-btn" onClick={() => setRelicReviewStatus(r.id, "pending")}>保留にする</button>
-                        <button className="card-edit-btn" onClick={() => setRelicReviewStatus(r.id, "needed")}>この遺物は必要</button>
+                      <div className="review-reason-box">
+                        <div className="review-reason-title">売却候補から外す理由</div>
+                        <div className="review-reason-row">
+                          {["notweak", "noalt", "unknown"].map((code) => (
+                            <button key={code} className={`card-edit-btn review-reason-btn ${reviewStatus[r.id] === code ? "active" : ""}`} onClick={() => setRelicReviewStatus(r.id, code)} title={REVIEW_DESC[code]}>
+                              {REVIEW_LABELS[code]}
+                              <span className="review-reason-desc">{REVIEW_DESC[code]}</span>
+                            </button>
+                          ))}
+                        </div>
                         {reviewStatus[r.id] && (
-                          <button className="card-edit-btn" onClick={() => setRelicReviewStatus(r.id, null)}>未審査に戻す</button>
+                          <div className="card-edit-row" style={{ marginTop: 6 }}>
+                            <button className="card-edit-btn" onClick={() => setRelicReviewStatus(r.id, null)}>未審査に戻す</button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -5846,15 +5926,32 @@ const GLOBAL_CSS = `
   padding: 4px 8px;
   margin-top: 6px;
 }
-.review-status-badge.pending {
+.review-status-badge.unknown {
   color: #F5E9CC;
   background: rgba(214,184,122,0.20);
   border: 1px solid #D6B87A;
 }
-.review-status-badge.needed {
+.review-status-badge.notweak {
   color: #DCF0DE;
   background: rgba(143,196,154,0.20);
   border: 1px solid #8FC49A;
+}
+.review-status-badge.noalt {
+  color: #DCE9F5;
+  background: rgba(127,169,201,0.20);
+  border: 1px solid #7FA9C9;
+}
+.review-reason-box { margin-top: 10px; }
+.review-reason-title { font-size: 11px; color: #A89C80; margin-bottom: 4px; }
+.review-reason-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.review-reason-btn { flex: 1 1 130px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; padding: 8px 10px; }
+.review-reason-btn.active { border-color: #D6B87A; color: #F5E9CC; }
+.review-reason-desc { font-size: 10px; color: #8A7F66; font-weight: 400; }
+.auto-release-note {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: #DCE9F5; background: rgba(127,169,201,0.14);
+  border: 1px solid #7FA9C9; border-radius: 8px; padding: 8px 12px;
 }
 .review-panel-progress {
   font-family: 'Zen Kaku Gothic New', sans-serif;
